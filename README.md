@@ -1,11 +1,10 @@
-
 <div align="center">
 
 # 📋 Trello Clone
 
 ### Organize Your Work. Manage Your Tasks. Boost Your Productivity. 🚀
 
-A modern task management application inspired by Trello, designed to help users organize projects, manage tasks, and visualize their workflow through a Kanban-style interface.
+A modern task management application inspired by Trello, built to help users organize projects, manage tasks, and visualize their workflow through a Kanban-style interface.
 
 <br/>
 
@@ -17,70 +16,236 @@ A modern task management application inspired by Trello, designed to help users 
 
 ---
 
-## 📖 About the Project
+## 🚀 About The Project
 
-**Trello Clone** is a project management application inspired by the popular Trello platform.
+**Trello Clone** is a task management and project organization application inspired by Trello.
 
-The project focuses on creating an intuitive task management experience where users can organize their work into boards, lists, and cards.
+The application provides a visual Kanban-style workflow where users can organize their projects, manage tasks, and move work through different stages.
 
-It is designed to demonstrate modern web development concepts, interactive user interfaces, and practical project management workflows.
+The project focuses on building a practical, real-world productivity application while working with modern full-stack development concepts.
 
 ---
 
 ## ✨ Features
 
-> Update this section according to the features implemented in your application.
-
-- 📋 Task Management
-- 🗂️ Board Organization
-- 📝 Create and Manage Cards
-- 🔄 Task Workflow Management
-- 🎨 Interactive User Interface
-- 📱 Responsive Design
-- ⚡ Smooth User Experience
+- 🔐 User Authentication
+- 📋 Create & Manage Boards
+- 🗂️ Create & Manage Lists
+- 📝 Create & Manage Tasks
+- 🔄 Organize Tasks Across Lists
+- 👥 Project / Board Collaboration
+- 📧 Member Invitation
+- 🔑 Forgot Password / OTP Flow
+- 📱 Responsive Interface
+- ⚡ Real-Time Task Management
+- 🎨 Clean & Modern UI
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Technology | Purpose |
-|---|---|
-| ⚛️ React.js | Frontend |
-| 🟢 Node.js | Backend |
-| 🚀 Express.js | API Development |
-| 🍃 MongoDB | Database |
-| 🎨 CSS / Tailwind CSS | Styling |
-| 🔄 JavaScript / TypeScript | Application Logic |
+### Frontend
 
-> **Note:** Keep only the technologies actually used in your repository.
+- ⚛️ React.js
+- 🎨 Tailwind CSS
+- 🔄 Axios
+- 🧩 React Components
+
+### Backend
+
+- 🟢 Node.js
+- 🚀 Express.js
+- 🔐 Authentication APIs
+- 📡 REST APIs
+
+### Database
+
+- 🍃 MongoDB
+- 🔥 Mongoose
+
+### Development Tools
+
+- 🐙 Git & GitHub
+- 📮 Postman
+- 💻 VS Code
 
 ---
 
-## 📸 Screenshots
+## 🏗️ Application Architecture
 
-### 🏠 Dashboard
+```text
+                    ┌──────────────────┐
+                    │      Client      │
+                    │    React.js      │
+                    └────────┬─────────┘
+                             │
+                             │ HTTP / API
+                             ▼
+                    ┌──────────────────┐
+                    │      Server      │
+                    │ Node.js + Express│
+                    └────────┬─────────┘
+                             │
+                             │ Mongoose
+                             ▼
+                    ┌──────────────────┐
+                    │     MongoDB      │
+                    │     Database     │
+                    └──────────────────┘
+```
 
-<p align="center">
-  <img src="./assets/dashboard.png" alt="Dashboard Screenshot" width="900">
-</p>
+---
 
-### 📋 Task Board
+## 📁 Project Structure
 
-<p align="center">
-  <img src="./assets/board.png" alt="Task Board Screenshot" width="900">
-</p>
+```text
+trello/
+│
+├── client/                 # Frontend application
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── hooks/
+│   │   ├── services/
+│   │   ├── utils/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   └── package.json
+│
+├── server/                 # Backend application
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── middleware/
+│   ├── services/
+│   ├── utils/
+│   ├── config/
+│   ├── server.js
+│   └── package.json
+│
+├── .gitignore
+├── README.md
+└── package.json
+```
 
-### 📝 Task Management
+> 💡 The structure above is an example of a clean full-stack organization. Keep it aligned with the actual folders in your repository.
 
-<p align="center">
-  <img src="./assets/tasks.png" alt="Task Management Screenshot" width="900">
-</p>
+---
+
+## 🔄 How It Works
+
+```text
+User
+  │
+  ▼
+Authentication
+  │
+  ▼
+Create / Join Board
+  │
+  ▼
+Create Lists
+  │
+  ▼
+Create Tasks
+  │
+  ▼
+Manage & Organize Tasks
+  │
+  ▼
+Collaborate With Members
+  │
+  ▼
+MongoDB
+```
+
+---
+
+## 🔐 Authentication
+
+The application includes an authentication flow for securely managing users.
+
+### Authentication Flow
+
+```text
+Register
+   ↓
+Login
+   ↓
+Authentication
+   ↓
+Access Protected Resources
+   ↓
+Logout
+```
+
+Additional account recovery functionality can include:
+
+```text
+Forgot Password
+      ↓
+Enter Email
+      ↓
+Receive OTP
+      ↓
+Verify OTP
+      ↓
+Set New Password
+```
+
+---
+
+## 📧 Board Member Invitation
+
+Users can invite other members to collaborate on a board.
+
+```text
+Board Owner
+     │
+     ▼
+Enter Member Email
+     │
+     ▼
+Send Invitation
+     │
+     ▼
+Member Receives Email
+     │
+     ▼
+Accept Invitation
+     │
+     ▼
+Join Board
+     │
+     ▼
+Collaborate
+```
+
+---
+
+## 🗃️ Core Data Model
+
+The application can be organized around the following main entities:
+
+```text
+User
+ │
+ ├── Boards
+ │      │
+ │      ├── Lists
+ │      │     │
+ │      │     └── Cards
+ │      │
+ │      └── Members
+ │
+ └── Invitations
+```
 
 ---
 
 ## 🚀 Getting Started
-
-Follow the steps below to run the project locally.
 
 ### 1. Clone the Repository
 
@@ -96,76 +261,75 @@ cd trello
 
 ### 3. Install Dependencies
 
+If frontend and backend are separate:
+
 ```bash
+cd client
 npm install
 ```
 
-> If the project contains separate frontend and backend directories, install dependencies inside each directory.
+```bash
+cd ../server
+npm install
+```
 
 ### 4. Configure Environment Variables
 
-Create a `.env` file if your project requires environment variables.
+Create a `.env` file inside the backend directory.
 
 ```env
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_secret_key
 ```
 
-Add only the variables required by your application.
+Add other environment variables required by your project.
 
-### 5. Run the Application
+### 5. Start the Application
+
+Frontend:
 
 ```bash
 npm run dev
 ```
 
-> Use the appropriate command configured in your `package.json`.
+Backend:
 
----
-
-## 📂 Project Structure
-
-```text
-trello/
-│
-├── src/
-│   ├── components/
-│   ├── pages/
-│   ├── hooks/
-│   └── ...
-│
-├── public/
-├── package.json
-└── README.md
+```bash
+npm run dev
 ```
 
-> Customize the structure to match your actual project.
-
 ---
 
-## 🎯 Key Learning Outcomes
+## 🎯 What I Learned
 
-Through this project, I focused on:
+Building this project helped me understand practical full-stack development concepts such as:
 
-- ⚛️ Frontend Application Development
-- 🧩 Component-Based Architecture
-- 🔄 State Management
-- 🎨 Responsive UI Design
-- 🗃️ Task Organization
-- 🚀 Building Interactive Web Applications
+- ⚛️ React application architecture
+- 🔗 Frontend–backend integration
+- 🌐 REST API development
+- 🍃 MongoDB data modeling
+- 🔐 Authentication & authorization
+- 📧 Email-based workflows
+- 🗂️ Project and task management
+- 🧩 Component-based architecture
+- 🛡️ Protected API routes
+- 📦 Structuring a scalable application
 
 ---
 
 ## 🔮 Future Improvements
 
-- 👥 Team Collaboration
-- 💬 Comments & Discussions
-- 🔔 Notifications
-- 📅 Due Dates
-- 🏷️ Labels & Categories
-- 📊 Progress Tracking
+- 💬 Task Comments
+- 🔔 Real-Time Notifications
+- 📎 File Attachments
+- 🏷️ Advanced Labels
+- 📅 Task Due Dates
+- 📊 Productivity Analytics
+- 🔎 Advanced Search
 - 🌙 Dark Mode
-- 🔐 Authentication & Authorization
+- 📱 Mobile Application
+- ⚡ More Real-Time Collaboration Features
 
 ---
 
@@ -173,18 +337,22 @@ Through this project, I focused on:
 
 Contributions are welcome!
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Commit your changes.
-4. Push your branch.
-5. Open a Pull Request.
-
 ```bash
-git checkout -b feature-name
-git add .
+# Fork the repository
+
+# Create a feature branch
+git checkout -b feature/new-feature
+
+# Make your changes
+
+# Commit your changes
 git commit -m "Add new feature"
-git push origin feature-name
+
+# Push your branch
+git push origin feature/new-feature
 ```
+
+Then open a Pull Request.
 
 ---
 
@@ -192,9 +360,9 @@ git push origin feature-name
 
 ### Aryan Patel
 
-💼 Full Stack Developer
+Full Stack Developer
 
-🔗 **GitHub:** [aryanp-tech](https://github.com/aryanp-tech)
+🐙 GitHub: [aryanp-tech](https://github.com/aryanp-tech)
 
 ---
 
@@ -202,6 +370,6 @@ git push origin feature-name
 
 ### ⭐ If you like this project, consider giving it a Star!
 
-Made with ❤️ by Aryan Patel
+Built with ❤️ by **Aryan Patel**
 
 </div>
