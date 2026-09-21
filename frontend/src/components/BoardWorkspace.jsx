@@ -63,6 +63,9 @@ const BoardWorkspace = () => {
         onCardDragStart={workspace.setDraggedCard}
         onCardDragEnd={() => workspace.setDraggedCard(null)}
         onDrop={workspace.moveCard}
+        onColumnDragStart={(column) => workspace.setDraggedColumn(column.id)}
+        onColumnDragEnd={() => workspace.setDraggedColumn(null)}
+        onColumnDrop={workspace.moveColumn}
         onRename={workspace.handleRenameColumn}
         onDeleteColumn={workspace.handleDeleteColumn}
         onCreateCard={workspace.openCreate}
@@ -75,9 +78,12 @@ const BoardWorkspace = () => {
           editingCard={workspace.editingCard}
           title={workspace.title}
           description={workspace.description}
+          list={workspace.list}
+          columns={workspace.columns}
           saving={workspace.saving}
           onTitleChange={workspace.setTitle}
           onDescriptionChange={workspace.setDescription}
+          onListChange={workspace.setList}
           onFileChange={workspace.setFile}
           onSubmit={workspace.handleCardSubmit}
           onClose={workspace.closeCardForm}
@@ -105,11 +111,19 @@ const BoardWorkspace = () => {
       )}
 {/* 
       //user can view the details of the card and also edit or delete the card */}
+      {/* Rich interactive card modal matching reference design */}
       {workspace.selectedCard && (
         <CardDetailsModal
           card={workspace.selectedCard}
-          onEdit={() => workspace.openEdit(workspace.selectedCard)}
-          onDelete={workspace.handleDelete}
+          columns={workspace.columns}
+          currentUser={user}
+          onUpdateCard={workspace.handleUpdateCardDetails}
+          onUploadAttachment={workspace.handleUploadAttachment}
+          onDeleteAttachment={workspace.handleDeleteAttachment}
+          onAddComment={workspace.handleAddCommentWithFile}
+          onUpdateComment={workspace.handleUpdateComment}
+          onDeleteComment={workspace.handleDeleteComment}
+          onDelete={() => workspace.handleDelete(workspace.selectedCard._id)}
           onClose={() => workspace.setSelectedCard(null)}
         />
       )}

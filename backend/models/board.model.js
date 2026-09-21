@@ -30,9 +30,10 @@ const boardSchema = new mongoose.Schema(
         },
       ],
       default: [
-        { id: 'todo', label: 'To Do' },
+        { id: 'do', label: 'Do' },
         { id: 'doing', label: 'Doing' },
-        { id: 'done', label: 'Done' },
+        { id: 'to-be-done', label: 'To Be Done' },
+        { id: 'final', label: 'Final' },
       ],
     },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

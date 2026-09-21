@@ -19,30 +19,16 @@ const storage = multer.diskStorage({
   },
 });
 
-const fileFilter = (_req, file, callback) => {
-  const allowedTypes = [
-    'application/pdf',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'text/plain',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  ];
-
-  if (allowedTypes.includes(file.mimetype)) {
-    return callback(null, true);
-  }
-
-  return callback(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'file'));
+const fileFilter = (_req, _file, callback) => {
+  // Allow all file types (images, pdfs, code, archives, docs, etc.)
+  callback(null, true);
 };
 
 const uploadCardFile = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: 25 * 1024 * 1024, // 25 MB
   },
 });
 

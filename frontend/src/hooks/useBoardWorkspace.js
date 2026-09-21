@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { deleteBoardColumn, getBoards, inviteBoardMember, updateBoard } from '../services/boardService'
-import { createCard, deleteCard, getCards, updateCard } from '../services/cardService'
+import {
+  addCardComment,
+  createCard,
+  deleteCard,
+  deleteCardAttachment,
+  deleteCardComment,
+  getCards,
+  updateCard,
+  updateCardComment,
+  uploadCardAttachment,
+} from '../services/cardService'
 
 const defaultColumns = [
-  { id: 'todo', label: 'To Do' },
+  { id: 'do', label: 'Do' },
   { id: 'doing', label: 'Doing' },
-  { id: 'done', label: 'Done' },
+  { id: 'to-be-done', label: 'To Be Done' },
+  { id: 'final', label: 'Final' },
 ]
 
 // custom hook for managing the state and logic of the board workspace
@@ -18,12 +29,16 @@ export const useBoardWorkspace = () => {
   const [error, setError] = useState('')
   const [notification, setNotification] = useState(null)
   const [draggedCard, setDraggedCard] = useState(null)
+  const [draggedColumn, setDraggedColumn] = useState(null)
   const [selectedCard, setSelectedCard] = useState(null)
   const [editingCard, setEditingCard] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [list, setList] = useState('')
   const [file, setFile] = useState(null)
+  const [commentText, setCommentText] = useState('')
+  const [commentSaving, setCommentSaving] = useState(false)
   const [saving, setSaving] = useState(false)
   const [columns, setColumns] = useState(defaultColumns)
   const [memberModalOpen, setMemberModalOpen] = useState(false)
@@ -53,11 +68,12 @@ export const useBoardWorkspace = () => {
   }, [boardId])
 
   // for creating a new card
-  const openCreate = () => {
+  const openCreate = (initialList = '') => {
     setSelectedCard(null)
     setEditingCard(null)
     setTitle('')
     setDescription('')
+    setList(initialList || (columns[0]?.id || 'do'))
     setFile(null)
     setModalOpen(true)
   }
@@ -65,6 +81,12 @@ export const useBoardWorkspace = () => {
   // for opening an existing card
   const openCard = (card) => {
     setSelectedCard(card)
+    setEditingCard(card)
+    setTitle(card.title)
+    setDescription(card.description || '')
+    setList(card.list || '')
+    setFile(null)
+    setCommentText('')
     setModalOpen(false)
   }
 
@@ -74,6 +96,7 @@ export const useBoardWorkspace = () => {
     setEditingCard(card)
     setTitle(card.title)
     setDescription(card.description || '')
+    setList(card.list || '')
     setFile(null)
     setModalOpen(true)
   }
@@ -83,8 +106,10 @@ export const useBoardWorkspace = () => {
     setEditingCard(null)
     setTitle('')
     setDescription('')
+    setList('')
     setFile(null)
     setModalOpen(false)
+    setSelectedCard(null)
   }
 
   // handles the submission of the card form for creating or updating a card
@@ -96,6 +121,7 @@ export const useBoardWorkspace = () => {
     const formData = new FormData()
     formData.append('title', title.trim())
     formData.append('description', description)
+    if (list) formData.append('list', list)
     if (file) formData.append('file', file)
 
     try {
@@ -103,6 +129,12 @@ export const useBoardWorkspace = () => {
       const response = editingCard
         ? await updateCard(boardId, editingCard._id, formData)
         : await createCard(boardId, formData)
+
+      if (response.data.board) {
+        setBoard(response.data.board)
+        setColumns(response.data.board.columns)
+      }
+
       setCards((current) => editingCard
         ? current.map((card) => card._id === editingCard._id ? response.data.card : card)
         : [...current, response.data.card])
@@ -133,27 +165,181 @@ export const useBoardWorkspace = () => {
   }
 
   // handles deleting a card from the board
-  const handleDelete = async () => {
-    if (!selectedCard) return
+  const handleDelete = async (cardIdToDelete) => {
+    const targetId = cardIdToDelete || selectedCard?._id
+    if (!targetId) return
 
     try {
-      await deleteCard(boardId, selectedCard._id)
-      setCards((current) => current.filter((card) => card._id !== selectedCard._id))
-      setSelectedCard(null)
+      await deleteCard(boardId, targetId)
+      setCards((current) => current.filter((card) => card._id !== targetId))
+      if (selectedCard?._id === targetId) {
+        setSelectedCard(null)
+      }
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to delete card')
     }
   }
 
+  // Update card fields directly (title, description, list)
+  const handleUpdateCardDetails = async (cardId, updates) => {
+    try {
+      const response = await updateCard(boardId, cardId, updates)
+      const updated = response.data.card
+      if (response.data.board) {
+        setBoard(response.data.board)
+        setColumns(response.data.board.columns)
+      }
+      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
+      if (selectedCard?._id === updated._id) {
+        setSelectedCard(updated)
+      }
+      return updated
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to update card')
+      throw requestError
+    }
+  }
+
+  // Upload file attachment directly to card
+  const handleUploadAttachment = async (cardId, attachmentFile) => {
+    try {
+      const response = await uploadCardAttachment(boardId, cardId, attachmentFile)
+      const updated = response.data.card
+      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
+      if (selectedCard?._id === updated._id) {
+        setSelectedCard(updated)
+      }
+      return updated
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to upload file')
+      throw requestError
+    }
+  }
+
+  // Delete an attachment from a card
+  const handleDeleteAttachment = async (cardId, attachmentId) => {
+    try {
+      const response = await deleteCardAttachment(boardId, cardId, attachmentId)
+      const updated = response.data.card
+      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
+      if (selectedCard?._id === updated._id) {
+        setSelectedCard(updated)
+      }
+      return updated
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to delete attachment')
+      throw requestError
+    }
+  }
+
+  // Add comment with optional file attachment
+  const handleAddCommentWithFile = async (cardId, text, commentFile) => {
+    try {
+      setCommentSaving(true)
+      let payload
+      if (commentFile) {
+        payload = new FormData()
+        if (text) payload.append('text', text)
+        payload.append('file', commentFile)
+      } else {
+        payload = { text }
+      }
+
+      const response = await addCardComment(boardId, cardId, payload)
+      const updated = response.data.card
+      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
+      if (selectedCard?._id === updated._id) {
+        setSelectedCard(updated)
+      }
+      return updated
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to add comment')
+      throw requestError
+    } finally {
+      setCommentSaving(false)
+    }
+  }
+
+  // Update a comment text
+  const handleUpdateComment = async (cardId, commentId, nextText) => {
+    try {
+      const response = await updateCardComment(boardId, cardId, commentId, nextText)
+      const updated = response.data.card
+      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
+      if (selectedCard?._id === updated._id) {
+        setSelectedCard(updated)
+      }
+      return updated
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to edit comment')
+      throw requestError
+    }
+  }
+
+  // Delete a comment
+  const handleDeleteComment = async (cardId, commentId) => {
+    try {
+      const response = await deleteCardComment(boardId, cardId, commentId)
+      const updated = response.data.card
+      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
+      if (selectedCard?._id === updated._id) {
+        setSelectedCard(updated)
+      }
+      return updated
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to delete comment')
+      throw requestError
+    }
+  }
+
+  const handleAddComment = async (event) => {
+    event.preventDefault()
+    if (!selectedCard || !commentText.trim()) return
+
+    try {
+      setCommentSaving(true)
+      const response = await addCardComment(boardId, selectedCard._id, { text: commentText })
+      setSelectedCard(response.data.card)
+      setCards((current) => current.map((card) => (
+        card._id === response.data.card._id ? response.data.card : card
+      )))
+      setCommentText('')
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Unable to add comment')
+    } finally {
+      setCommentSaving(false)
+    }
+  }
+
   // saves the updated columns to the board and updates state accordingly
   const saveColumns = async (nextColumns) => {
+    const previousColumns = columns
+    setColumns(nextColumns)
+
     try {
       const response = await updateBoard(boardId, { columns: nextColumns })
       setColumns(response.data.board.columns)
       setBoard(response.data.board)
     } catch (requestError) {
+      setColumns(previousColumns)
       setError(requestError.response?.data?.message || 'Unable to update columns')
     }
+  }
+
+  // moves a column and persists its new position
+  const moveColumn = async (targetColumnId) => {
+    if (!draggedColumn || draggedColumn === targetColumnId) return
+
+    const sourceIndex = columns.findIndex((column) => column.id === draggedColumn)
+    const targetIndex = columns.findIndex((column) => column.id === targetColumnId)
+    if (sourceIndex === -1 || targetIndex === -1) return
+
+    const nextColumns = [...columns]
+    const [column] = nextColumns.splice(sourceIndex, 1)
+    const insertionIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
+    nextColumns.splice(insertionIndex, 0, column)
+    setDraggedColumn(null)
+    await saveColumns(nextColumns)
   }
 
   // handles adding a new column to the board
@@ -213,22 +399,29 @@ export const useBoardWorkspace = () => {
     error,
     notification,
     draggedCard,
+    draggedColumn,
     selectedCard,
     editingCard,
     modalOpen,
     title,
     description,
+    list,
     file,
+    commentText,
+    commentSaving,
     saving,
     memberModalOpen,
     memberEmail,
     columnModalOpen,
     columnName,
     setDraggedCard,
+    setDraggedColumn,
     setSelectedCard,
     setTitle,
     setDescription,
+    setList,
     setFile,
+    setCommentText,
     setMemberModalOpen,
     setMemberEmail,
     setColumnModalOpen,
@@ -242,7 +435,15 @@ export const useBoardWorkspace = () => {
     closeCardForm,
     handleCardSubmit,
     moveCard,
+    moveColumn,
     handleDelete,
+    handleAddComment,
+    handleUpdateCardDetails,
+    handleUploadAttachment,
+    handleDeleteAttachment,
+    handleAddCommentWithFile,
+    handleUpdateComment,
+    handleDeleteComment,
     handleAddColumn,
     handleRenameColumn,
     handleDeleteColumn,

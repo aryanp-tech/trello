@@ -4,14 +4,20 @@ import LeftSidebar from "./LeftSidebar";
 import BoardCard from "./BoardCard";
 import BoardFormModal from "./BoardFormModal";
 
-const DashboardHome = () => {
+const DashboardHome = ({ searchQuery }) => {
   const navigate = useNavigate();
   const dashboard = useDashboardBoards();
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  // Filter boards based on the search query, ignoring case and whitespace
+  const filteredBoards = dashboard.boards.filter((board) =>
+    board.title.toLowerCase().includes(normalizedQuery),
+  );
 
   // displays all boards, user info, main dashboard page, and modals for creating/editing boards
   return (
     <div className="min-h-[calc(100vh-64px)] border-t border-[#1d2024] bg-[#111214] text-[#dedee3] lg:flex">
-      <LeftSidebar boards={dashboard.boards} loading={dashboard.loading} />
+      <LeftSidebar boards={filteredBoards} loading={dashboard.loading} />
 
       <main className="min-w-0 flex-1 px-6 py-8 lg:px-12">
         <div className="mx-auto max-w-5xl">
@@ -34,7 +40,7 @@ const DashboardHome = () => {
             <p className="text-sm text-[#99999f]">Loading boards...</p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {dashboard.boards.map((board) => (
+              {filteredBoards.map((board) => (
                 <BoardCard
                   key={board._id}
                   board={board}
@@ -49,6 +55,11 @@ const DashboardHome = () => {
                   onDelete={() => dashboard.handleDelete(board._id)}
                 />
               ))}
+              {!filteredBoards.length && (
+                <p className="col-span-full text-sm text-[#99999f]">
+                  No boards match your search.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={dashboard.openCreate}

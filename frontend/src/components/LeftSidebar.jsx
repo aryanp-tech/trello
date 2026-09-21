@@ -1,7 +1,5 @@
 import { useNavigate } from "react-router-dom";
 
-const fallbackColors = ["#c45aa9", "#1685c4", "#3d8f6e", "#8b63bd", "#c5844d"];
-
 const LeftSidebar = ({ boards, loading }) => {
   const navigate = useNavigate();
 
@@ -15,7 +13,7 @@ const LeftSidebar = ({ boards, loading }) => {
         </p>
         <div className="space-y-1">
           {/* // Display each board in the sidebar */}
-          {boards.map((board, index) => (
+          {boards.map((board) => (
             <button
               key={board._id}
               type="button"
@@ -26,14 +24,14 @@ const LeftSidebar = ({ boards, loading }) => {
                 {board.title.charAt(0).toUpperCase()}
               </span>
               <span className="truncate">{board.title}</span>
-              <span
+              {/* <span
                 className="ml-auto h-2 w-2 rounded-full"
                 style={{
                   backgroundColor:
                     board.backgroundColor ||
                     fallbackColors[index % fallbackColors.length],
                 }}
-              />
+              /> */}
             </button>
           ))}
           {!loading && boards.length === 0 && (

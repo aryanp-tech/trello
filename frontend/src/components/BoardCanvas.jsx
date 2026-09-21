@@ -8,6 +8,9 @@ const BoardCanvas = ({
   onCardDragStart,
   onCardDragEnd,
   onDrop,
+  onColumnDragStart,
+  onColumnDragEnd,
+  onColumnDrop,
   onRename,
   onDeleteColumn,
   onCreateCard,
@@ -41,6 +44,9 @@ const BoardCanvas = ({
           onCardDragStart={onCardDragStart}
           onCardDragEnd={onCardDragEnd}
           onDrop={onDrop}
+          onColumnDragStart={onColumnDragStart}
+          onColumnDragEnd={onColumnDragEnd}
+          onColumnDrop={onColumnDrop}
           onRename={onRename}
           onDelete={onDeleteColumn}
           onCreateCard={onCreateCard}

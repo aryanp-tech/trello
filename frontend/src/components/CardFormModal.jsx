@@ -1,16 +1,19 @@
+import CardListField from "./card/CardListField";
+
 const CardFormModal = ({
   editingCard,
   title,
   description,
+  list = "",
+  columns = [],
   saving,
   onTitleChange,
   onDescriptionChange,
+  onListChange,
   onFileChange,
   onSubmit,
   onClose,
 }) => {
-
-  //create new card or edit existing card, with title, description, and optional file attachmentx 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 px-4">
       <form
@@ -21,7 +24,7 @@ const CardFormModal = ({
           {editingCard ? "Edit card" : "Create card"}
         </h2>
 
-        {/* // Input fields for card title, description, and file attachment */}
+        {/* Card title */}
         <input
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
@@ -29,20 +32,31 @@ const CardFormModal = ({
           className="mb-3 w-full rounded-md bg-[#17181a] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
           required
         />
+
+        {/* List / Status Field */}
+        <CardListField
+          list={list}
+          columns={columns}
+          onListChange={onListChange}
+        />
+
+        {/* Description */}
         <textarea
           value={description}
           onChange={(event) => onDescriptionChange(event.target.value)}
           placeholder="Description"
-          rows="5"
+          rows="4"
           className="mb-3 w-full resize-y rounded-md bg-[#17181a] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
         />
+
+        {/* File attachment */}
         <input
           type="file"
           onChange={(event) => onFileChange(event.target.files?.[0] || null)}
           className="mb-5 w-full text-sm text-white/80 file:mr-3 file:rounded-md file:border-0 file:bg-white/15 file:px-3 file:py-2 file:text-white"
         />
 
-        {/* // Buttons for canceling or submitting the form */}
+        {/* Form action buttons */}
         <div className="flex justify-end gap-2">
           <button
             type="button"

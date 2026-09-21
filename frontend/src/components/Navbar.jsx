@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 
-const Navbar = () => {
+const Navbar = ({ searchQuery, onSearchChange }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -40,6 +40,8 @@ const Navbar = () => {
             <input
               type="text"
               placeholder="Search"
+              value={searchQuery}
+              onChange={(event) => onSearchChange(event.target.value)}
               className="w-full border-0 bg-transparent text-sm text-white placeholder:text-slate-400 outline-none"
             />
           </div>

@@ -5,6 +5,9 @@ const BoardColumn = ({
   onCardDragStart,
   onCardDragEnd,
   onDrop,
+  onColumnDragStart,
+  onColumnDragEnd,
+  onColumnDrop,
   onRename,
   onDelete,
   onCreateCard,
@@ -19,11 +22,18 @@ const BoardColumn = ({
   //map for each card in the column and display them as buttons
   return (
     <section
+      draggable
+      onDragStart={() => onColumnDragStart(column)}
+      onDragEnd={onColumnDragEnd}
       onDragOver={(event) => event.preventDefault()}
-      onDrop={() => onDrop(column.id)}
+      onDrop={(event) => {
+        event.preventDefault()
+        onDrop(column.id)
+        onColumnDrop(column.id)
+      }}
       className="w-72 shrink-0 self-start rounded-xl border border-[#33353a] bg-[#191a1d] p-2"
     >
-      <div className="flex items-center justify-between gap-2 px-3 py-2">
+      <div className="flex cursor-grab items-center justify-between gap-2 rounded-md px-3 py-2 active:cursor-grabbing">
         <button
           type="button"
           onClick={() => onRename(column)}
@@ -47,8 +57,14 @@ const BoardColumn = ({
             key={card._id}
             type="button"
             draggable
-            onDragStart={() => onCardDragStart(card)}
-            onDragEnd={onCardDragEnd}
+            onDragStart={(event) => {
+              event.stopPropagation()
+              onCardDragStart(card)
+            }}
+            onDragEnd={(event) => {
+              event.stopPropagation()
+              onCardDragEnd()
+            }}
             onClick={() => onCardOpen(card)}
             className="block w-full cursor-grab rounded-md border border-[#3b3d42] bg-[#303237] px-3 py-3 text-left text-sm hover:bg-[#3a3c42] active:cursor-grabbing"
           >
@@ -58,7 +74,7 @@ const BoardColumn = ({
       </div>
       <button
         type="button"
-        onClick={onCreateCard}
+        onClick={() => onCreateCard(column.id)}
         className="mt-2 flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-white/75 hover:bg-white/10"
       >
         ＋ Add a card
