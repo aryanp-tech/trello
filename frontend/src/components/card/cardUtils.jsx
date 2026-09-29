@@ -32,38 +32,105 @@ export const formatTimestamp = (dateString) => {
   });
 };
 
-// Standard preset options for cards
+// Standard 4 preset options for cards - only these 4 are suggested
 export const PRESET_OPTIONS = ["Do", "Doing", "To Be Done", "Final"];
 
-// Merge board columns with preset options so Do, Doing, To Be Done, Final are always available
-export const getMergedColumnOptions = (columns = []) => {
-  const mergedOptions = [];
-  const addedLabels = new Set();
+// Only return the exact 4 suggestions - never add any extra columns
+export const getMergedColumnOptions = () => [
+  { id: "do", label: "Do" },
+  { id: "doing", label: "Doing" },
+  { id: "to-be-done", label: "To Be Done" },
+  { id: "final", label: "Final" },
+];
 
-  PRESET_OPTIONS.forEach((preset) => {
-    const existing = columns.find(
-      (col) =>
-        col.id?.toLowerCase() === preset.toLowerCase().replace(/[^a-z0-9]+/g, "-") ||
-        col.label?.toLowerCase() === preset.toLowerCase()
-    );
-    if (existing) {
-      mergedOptions.push(existing);
-      addedLabels.add(existing.label.toLowerCase());
-    } else {
-      mergedOptions.push({
-        id: preset.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        label: preset,
-      });
-      addedLabels.add(preset.toLowerCase());
-    }
-  });
+// Clean & format status/column labels nicely, eliminating legacy timestamp IDs
+export const formatStatusLabel = (val) => {
+  if (!val) return "List";
+  const str = String(val).trim();
+  if (/^\d+$/.test(str)) return "Do";
+  const clean = str.replace(/[-_]\d+$/, "").trim();
+  const lower = clean.toLowerCase();
+  if (lower === "do" || lower === "todo") return "Do";
+  if (lower === "doing") return "Doing";
+  if (lower === "to-be-done" || lower === "to be done") return "To Be Done";
+  if (lower === "final" || lower === "done") return "Final";
+  return clean || "Do";
+};
 
-  columns.forEach((col) => {
-    if (col?.label && !addedLabels.has(col.label.toLowerCase())) {
-      mergedOptions.push(col);
-      addedLabels.add(col.label.toLowerCase());
-    }
-  });
+// Helper to determine if a status is custom (not one of the 4 standard suggestions)
+export const isCustomStatus = (statusOrColumn) => {
+  if (!statusOrColumn) return false;
+  const raw = typeof statusOrColumn === "string"
+    ? statusOrColumn
+    : (statusOrColumn.label || statusOrColumn.id || "");
+  const normalized = formatStatusLabel(raw);
+  return !["Do", "Doing", "To Be Done", "Final"].includes(normalized);
+};
 
-  return mergedOptions;
+// Extract media cover and counts for card preview
+export const getCardDetailsSummary = (card) => {
+  if (!card) {
+    return {
+      coverImageUrl: null,
+      commentsCount: 0,
+      attachmentsCount: 0,
+      hasDescription: false,
+    };
+  }
+
+  const allAttachments = [];
+  if (card.attachments && Array.isArray(card.attachments)) {
+    allAttachments.push(...card.attachments);
+  }
+  if (card.attachment?.url && !allAttachments.some((a) => a.url === card.attachment.url)) {
+    allAttachments.unshift(card.attachment);
+  }
+
+  const imageAttachment = allAttachments.find(
+    (att) =>
+      att?.mimeType?.startsWith("image/") ||
+      /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
+        att?.fileName || att?.originalName || att?.url || ""
+      )
+  );
+
+  const videoAttachment = allAttachments.find(
+    (att) =>
+      att?.mimeType?.startsWith("video/") ||
+      /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(
+        att?.fileName || att?.originalName || att?.url || ""
+      )
+  );
+
+  return {
+    coverImageUrl: card.coverImage || card.cover || imageAttachment?.url || null,
+    coverVideoUrl: videoAttachment?.url || null,
+    commentsCount: Array.isArray(card.comments) ? card.comments.length : 0,
+    attachmentsCount: allAttachments.length,
+    hasDescription: Boolean(card.description && card.description.trim()),
+  };
+};
+
+// Helper for user initials
+export const getInitials = (name) => {
+  if (!name) return "U";
+  return name.slice(0, 2).toUpperCase();
+};
+
+// Helper for avatar background colors
+export const getAvatarColor = (name = "") => {
+  const colors = [
+    "bg-blue-600",
+    "bg-emerald-600",
+    "bg-purple-600",
+    "bg-amber-600",
+    "bg-pink-600",
+    "bg-cyan-600",
+    "bg-indigo-600",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
 };

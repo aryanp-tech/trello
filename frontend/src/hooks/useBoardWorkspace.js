@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { deleteBoardColumn, getBoards, inviteBoardMember, updateBoard } from '../services/boardService'
+import { useEffect, useRef, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import {
+  createBoardColumn,
+  deleteBoardColumn,
+  getBoards,
+  inviteBoardMember,
+  removeBoardMember,
+  updateBoard,
+} from '../services/boardService'
 import {
   addCardComment,
   createCard,
@@ -8,116 +15,134 @@ import {
   deleteCardAttachment,
   deleteCardComment,
   getCards,
+  reorderCards,
   updateCard,
   updateCardComment,
   uploadCardAttachment,
 } from '../services/cardService'
 
-const defaultColumns = [
-  { id: 'do', label: 'Do' },
-  { id: 'doing', label: 'Doing' },
-  { id: 'to-be-done', label: 'To Be Done' },
-  { id: 'final', label: 'Final' },
-]
-
-// custom hook for managing the state and logic of the board workspace
 export const useBoardWorkspace = () => {
   const { boardId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlCardId = searchParams.get('cardId')
+
+  // Board & Cards State
   const [board, setBoard] = useState(null)
   const [cards, setCards] = useState([])
+  const [columns, setColumns] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notification, setNotification] = useState(null)
-  const [draggedCard, setDraggedCard] = useState(null)
-  const [draggedColumn, setDraggedColumn] = useState(null)
-  const [selectedCard, setSelectedCard] = useState(null)
-  const [editingCard, setEditingCard] = useState(null)
+  const [selectedCardId, setSelectedCardId] = useState(null)
+
+  const activeCardId = urlCardId || selectedCardId
+  const selectedCard = cards.find((c) => String(c._id) === String(activeCardId)) || null
+
+  const setSelectedCard = (cardOrNull) => {
+    setSelectedCardId(cardOrNull?._id || cardOrNull || null)
+  }
+
+  // Card Creation Modal State
   const [modalOpen, setModalOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [list, setList] = useState('')
   const [file, setFile] = useState(null)
-  const [commentText, setCommentText] = useState('')
-  const [commentSaving, setCommentSaving] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [columns, setColumns] = useState(defaultColumns)
+  const [commentSaving, setCommentSaving] = useState(false)
+
+  // Column & Member Modals State
   const [memberModalOpen, setMemberModalOpen] = useState(false)
   const [memberEmail, setMemberEmail] = useState('')
   const [columnModalOpen, setColumnModalOpen] = useState(false)
   const [columnName, setColumnName] = useState('')
 
+  // Persistence Refs & Debounce Timers
+  const lastSavedCardsRef = useRef([])
+  const pendingCardMoveRef = useRef(null)
+  const pendingColumnMoveRef = useRef(null)
+  const cardDebounceTimerRef = useRef(null)
+  const columnDebounceTimerRef = useRef(null)
+
+  // Load board and cards on mount or boardId change
   useEffect(() => {
     let active = true
 
     Promise.all([getBoards(), getCards(boardId)])
-      .then(([boardResponse, cardResponse]) => {
+      .then(([boardRes, cardRes]) => {
         if (!active) return
-        const nextBoard = (boardResponse.data.boards || []).find((item) => item._id === boardId) || null
-        setBoard(nextBoard)
-        setColumns(nextBoard?.columns?.length ? nextBoard.columns : defaultColumns)
-        setCards(cardResponse.data.cards || [])
+        const currentBoard = (boardRes.data.boards || []).find((b) => b._id === boardId) || null
+        setBoard(currentBoard)
+        setColumns(currentBoard?.columns || [])
+
+        const initialCards = cardRes.data.cards || []
+        setCards(initialCards)
+        lastSavedCardsRef.current = initialCards
       })
-      .catch((requestError) => {
-        if (active) setError(requestError.response?.data?.message || 'Unable to load board')
+      .catch((err) => {
+        if (active) setError(err.response?.data?.message || 'Unable to load board')
       })
       .finally(() => {
         if (active) setLoading(false)
       })
 
-    return () => { active = false }
+    return () => {
+      active = false
+      if (cardDebounceTimerRef.current) clearTimeout(cardDebounceTimerRef.current)
+      if (columnDebounceTimerRef.current) clearTimeout(columnDebounceTimerRef.current)
+    }
   }, [boardId])
 
-  // for creating a new card
+  const handleCloseCardModal = () => {
+    setSelectedCardId(null)
+    if (searchParams.has('cardId')) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('cardId')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }
+
+  // Helper: Synchronize an updated card across cards list and selected card
+  const updateLocalCard = (updated) => {
+    setCards((current) => {
+      const next = current.map((c) => (c._id === updated._id ? updated : c))
+      lastSavedCardsRef.current = next
+      return next
+    })
+    return updated
+  }
+
+  // --- Card Form Actions ---
   const openCreate = (initialList = '') => {
     setSelectedCard(null)
-    setEditingCard(null)
     setTitle('')
     setDescription('')
-    setList(initialList || (columns[0]?.id || 'do'))
+    setList(initialList || columns[0]?.id || '')
     setFile(null)
     setModalOpen(true)
   }
 
-  // for opening an existing card
   const openCard = (card) => {
     setSelectedCard(card)
-    setEditingCard(card)
-    setTitle(card.title)
-    setDescription(card.description || '')
-    setList(card.list || '')
-    setFile(null)
-    setCommentText('')
-    setModalOpen(false)
+    if (card?._id) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.set('cardId', card._id)
+      setSearchParams(nextParams, { replace: true })
+    }
   }
 
-  // for editing an existing card
-  const openEdit = (card) => {
-    setSelectedCard(null)
-    setEditingCard(card)
-    setTitle(card.title)
-    setDescription(card.description || '')
-    setList(card.list || '')
-    setFile(null)
-    setModalOpen(true)
-  }
-
-  // closes the card form modal and resets related state
   const closeCardForm = () => {
-    setEditingCard(null)
     setTitle('')
     setDescription('')
     setList('')
     setFile(null)
     setModalOpen(false)
-    setSelectedCard(null)
   }
 
-  // handles the submission of the card form for creating or updating a card
-  const handleCardSubmit = async (event) => {
-    event.preventDefault()
+  const handleCardSubmit = async (e) => {
+    e.preventDefault()
     if (!title.trim()) return
 
-    // create a FormData object to handle file uploads along with other card data
     const formData = new FormData()
     formData.append('title', title.trim())
     formData.append('description', description)
@@ -126,267 +151,282 @@ export const useBoardWorkspace = () => {
 
     try {
       setSaving(true)
-      const response = editingCard
-        ? await updateCard(boardId, editingCard._id, formData)
-        : await createCard(boardId, formData)
-
-      if (response.data.board) {
-        setBoard(response.data.board)
-        setColumns(response.data.board.columns)
+      const res = await createCard(boardId, formData)
+      if (res.data.board) {
+        setBoard(res.data.board)
+        setColumns(res.data.board.columns)
       }
-
-      setCards((current) => editingCard
-        ? current.map((card) => card._id === editingCard._id ? response.data.card : card)
-        : [...current, response.data.card])
+      setCards((current) => {
+        const next = [...current, res.data.card]
+        lastSavedCardsRef.current = next
+        return next
+      })
       closeCardForm()
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to save card')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to save card')
     } finally {
       setSaving(false)
     }
   }
 
-  // handles moving a card to a different column
-  const moveCard = async (list) => {
-    if (!draggedCard || draggedCard.list === list) return
+  // --- Drag and Drop Position Sync (Debounced, Zero In-Memory Shifts) ---
+  const handleReorderCards = (movePayload, nextCards) => {
+    if (nextCards) setCards(nextCards)
+    if (!movePayload?.cardId) return
 
-    const previousCards = cards
-    setCards((current) => current.map((card) => (
-      card._id === draggedCard._id ? { ...card, list } : card
-    )))
-    setDraggedCard(null)
+    pendingCardMoveRef.current = movePayload
 
-    try {
-      await updateCard(boardId, draggedCard._id, { list })
-    } catch (requestError) {
-      setCards(previousCards)
-      setError(requestError.response?.data?.message || 'Unable to move card')
-    }
+    if (cardDebounceTimerRef.current) clearTimeout(cardDebounceTimerRef.current)
+
+    cardDebounceTimerRef.current = setTimeout(async () => {
+      const payload = pendingCardMoveRef.current
+      pendingCardMoveRef.current = null
+      if (!payload) return
+
+      try {
+        await reorderCards(boardId, payload)
+        lastSavedCardsRef.current = nextCards || cards
+      } catch (err) {
+        if (lastSavedCardsRef.current) setCards(lastSavedCardsRef.current)
+        setError(err.response?.data?.message || 'Unable to save card order')
+      }
+    }, 400)
   }
 
-  // handles deleting a card from the board
+  const handleReorderColumns = (columnMovePayload, nextColumns) => {
+    const prevColumns = columns
+    if (nextColumns) setColumns(nextColumns)
+    if (!columnMovePayload?.columnId) return
+
+    pendingColumnMoveRef.current = columnMovePayload
+
+    if (columnDebounceTimerRef.current) clearTimeout(columnDebounceTimerRef.current)
+
+    columnDebounceTimerRef.current = setTimeout(async () => {
+      const payload = pendingColumnMoveRef.current
+      pendingColumnMoveRef.current = null
+      if (!payload) return
+
+      try {
+        const res = await updateBoard(boardId, payload)
+        if (res.data.board) {
+          setColumns(res.data.board.columns)
+          setBoard(res.data.board)
+        }
+      } catch (err) {
+        setColumns(prevColumns)
+        setError(err.response?.data?.message || 'Unable to update columns')
+      }
+    }, 400)
+  }
+
+  // --- Card Details, Attachments & Comments Actions ---
   const handleDelete = async (cardIdToDelete) => {
     const targetId = cardIdToDelete || selectedCard?._id
     if (!targetId) return
 
     try {
       await deleteCard(boardId, targetId)
-      setCards((current) => current.filter((card) => card._id !== targetId))
+      setCards((current) => {
+        const next = current.filter((c) => c._id !== targetId)
+        lastSavedCardsRef.current = next
+        return next
+      })
       if (selectedCard?._id === targetId) {
-        setSelectedCard(null)
+        handleCloseCardModal()
       }
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to delete card')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to delete card')
     }
   }
 
-  // Update card fields directly (title, description, list)
   const handleUpdateCardDetails = async (cardId, updates) => {
     try {
-      const response = await updateCard(boardId, cardId, updates)
-      const updated = response.data.card
-      if (response.data.board) {
-        setBoard(response.data.board)
-        setColumns(response.data.board.columns)
+      const res = await updateCard(boardId, cardId, updates)
+      if (res.data.board) {
+        setBoard(res.data.board)
+        setColumns(res.data.board.columns)
       }
-      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
-      if (selectedCard?._id === updated._id) {
-        setSelectedCard(updated)
-      }
-      return updated
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to update card')
-      throw requestError
+      return updateLocalCard(res.data.card)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to update card')
+      throw err
     }
   }
 
-  // Upload file attachment directly to card
   const handleUploadAttachment = async (cardId, attachmentFile) => {
     try {
-      const response = await uploadCardAttachment(boardId, cardId, attachmentFile)
-      const updated = response.data.card
-      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
-      if (selectedCard?._id === updated._id) {
-        setSelectedCard(updated)
-      }
-      return updated
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to upload file')
-      throw requestError
+      const res = await uploadCardAttachment(boardId, cardId, attachmentFile)
+      return updateLocalCard(res.data.card)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to upload file')
+      throw err
     }
   }
 
-  // Delete an attachment from a card
   const handleDeleteAttachment = async (cardId, attachmentId) => {
     try {
-      const response = await deleteCardAttachment(boardId, cardId, attachmentId)
-      const updated = response.data.card
-      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
-      if (selectedCard?._id === updated._id) {
-        setSelectedCard(updated)
-      }
-      return updated
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to delete attachment')
-      throw requestError
+      const res = await deleteCardAttachment(boardId, cardId, attachmentId)
+      return updateLocalCard(res.data.card)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to delete attachment')
+      throw err
     }
   }
 
-  // Add comment with optional file attachment
   const handleAddCommentWithFile = async (cardId, text, commentFile) => {
     try {
       setCommentSaving(true)
-      let payload
+      let payload = { text }
       if (commentFile) {
         payload = new FormData()
         if (text) payload.append('text', text)
         payload.append('file', commentFile)
-      } else {
-        payload = { text }
       }
-
-      const response = await addCardComment(boardId, cardId, payload)
-      const updated = response.data.card
-      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
-      if (selectedCard?._id === updated._id) {
-        setSelectedCard(updated)
-      }
-      return updated
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to add comment')
-      throw requestError
+      const res = await addCardComment(boardId, cardId, payload)
+      return updateLocalCard(res.data.card)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to add comment')
+      throw err
     } finally {
       setCommentSaving(false)
     }
   }
 
-  // Update a comment text
   const handleUpdateComment = async (cardId, commentId, nextText) => {
     try {
-      const response = await updateCardComment(boardId, cardId, commentId, nextText)
-      const updated = response.data.card
-      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
-      if (selectedCard?._id === updated._id) {
-        setSelectedCard(updated)
-      }
-      return updated
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to edit comment')
-      throw requestError
+      const res = await updateCardComment(boardId, cardId, commentId, nextText)
+      return updateLocalCard(res.data.card)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to edit comment')
+      throw err
     }
   }
 
-  // Delete a comment
   const handleDeleteComment = async (cardId, commentId) => {
     try {
-      const response = await deleteCardComment(boardId, cardId, commentId)
-      const updated = response.data.card
-      setCards((current) => current.map((c) => (c._id === updated._id ? updated : c)))
-      if (selectedCard?._id === updated._id) {
-        setSelectedCard(updated)
-      }
-      return updated
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to delete comment')
-      throw requestError
+      const res = await deleteCardComment(boardId, cardId, commentId)
+      return updateLocalCard(res.data.card)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to delete comment')
+      throw err
     }
   }
 
-  const handleAddComment = async (event) => {
-    event.preventDefault()
-    if (!selectedCard || !commentText.trim()) return
-
-    try {
-      setCommentSaving(true)
-      const response = await addCardComment(boardId, selectedCard._id, { text: commentText })
-      setSelectedCard(response.data.card)
-      setCards((current) => current.map((card) => (
-        card._id === response.data.card._id ? response.data.card : card
-      )))
-      setCommentText('')
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to add comment')
-    } finally {
-      setCommentSaving(false)
-    }
-  }
-
-  // saves the updated columns to the board and updates state accordingly
+  // --- Column Management Actions ---
   const saveColumns = async (nextColumns) => {
-    const previousColumns = columns
+    const prevColumns = columns
     setColumns(nextColumns)
-
     try {
-      const response = await updateBoard(boardId, { columns: nextColumns })
-      setColumns(response.data.board.columns)
-      setBoard(response.data.board)
-    } catch (requestError) {
-      setColumns(previousColumns)
-      setError(requestError.response?.data?.message || 'Unable to update columns')
+      const res = await updateBoard(boardId, { columns: nextColumns })
+      setColumns(res.data.board.columns)
+      setBoard(res.data.board)
+    } catch (err) {
+      setColumns(prevColumns)
+      setError(err.response?.data?.message || 'Unable to update columns')
     }
   }
 
-  // moves a column and persists its new position
-  const moveColumn = async (targetColumnId) => {
-    if (!draggedColumn || draggedColumn === targetColumnId) return
-
-    const sourceIndex = columns.findIndex((column) => column.id === draggedColumn)
-    const targetIndex = columns.findIndex((column) => column.id === targetColumnId)
-    if (sourceIndex === -1 || targetIndex === -1) return
-
-    const nextColumns = [...columns]
-    const [column] = nextColumns.splice(sourceIndex, 1)
-    const insertionIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
-    nextColumns.splice(insertionIndex, 0, column)
-    setDraggedColumn(null)
-    await saveColumns(nextColumns)
-  }
-
-  // handles adding a new column to the board
-  const handleAddColumn = async (event) => {
-    event.preventDefault()
+  const handleAddColumn = async (e) => {
+    e.preventDefault()
     const label = columnName.trim()
     if (!label) return
 
-    const id = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`
-    await saveColumns([...columns, { id, label }])
-    setColumnName('')
-    setColumnModalOpen(false)
-  }
-
-  // handles renaming an existing column on the board
-  const handleRenameColumn = async (column) => {
-    const label = window.prompt('Column name', column.label)?.trim()
-    if (!label || label === column.label) return
-    await saveColumns(columns.map((item) => item.id === column.id ? { ...item, label } : item))
-  }
-
-  // deletes a column and all cards inside it
-  const handleDeleteColumn = async (column) => {
     try {
-      const response = await deleteBoardColumn(boardId, column.id)
-      setColumns(response.data.board.columns)
-      setBoard(response.data.board)
-      setCards((current) => current.filter((card) => card.list !== column.id))
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Unable to delete column')
+      const res = await createBoardColumn(boardId, label)
+      if (res.data.board) {
+        setBoard(res.data.board)
+        setColumns(res.data.board.columns)
+      }
+      setColumnName('')
+      setColumnModalOpen(false)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to add column')
     }
   }
 
-  // handles inviting a new member to the board via email
-  const handleAddMember = async (event) => {
-    event.preventDefault()
+  const handleRenameColumn = async (column) => {
+    const label = window.prompt('Column name', column.label)?.trim()
+    if (!label || label === column.label) return
+    await saveColumns(columns.map((col) => (col.id === column.id ? { ...col, label } : col)))
+  }
+
+  const handleDeleteColumn = async (column) => {
+    try {
+      const res = await deleteBoardColumn(boardId, column.id)
+      setColumns(res.data.board.columns)
+      setBoard(res.data.board)
+      setCards((current) => {
+        const next = current.filter((c) => c.list !== column.id)
+        lastSavedCardsRef.current = next
+        return next
+      })
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to delete column')
+    }
+  }
+
+  const handleInviteMember = async (email, cardId = null) => {
+    if (!email?.trim()) return null
+    try {
+      const res = await inviteBoardMember(boardId, email.trim(), cardId)
+      if (res.data.member) {
+        setBoard((prev) => {
+          if (!prev) return prev
+          const exists = (prev.members || []).some((m) => String(m._id || m) === String(res.data.member._id))
+          return exists ? prev : { ...prev, members: [...(prev.members || []), res.data.member] }
+        })
+        if (cardId && res.data.card) {
+          setCards((prev) => prev.map((c) => (c._id === cardId ? res.data.card : c)))
+        }
+      }
+      setNotification({ type: 'success', message: res.data.message || 'Invitation sent successfully.' })
+      return res.data
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Unable to send invitation.'
+      setNotification({ type: 'error', message: msg })
+      throw err
+    }
+  }
+
+  const handleAddMember = async (e) => {
+    e.preventDefault()
     if (!memberEmail.trim()) return
 
     try {
-      await inviteBoardMember(boardId, memberEmail.trim())
+      await handleInviteMember(memberEmail.trim())
       setMemberEmail('')
       setMemberModalOpen(false)
-      setNotification({ type: 'success', message: 'The board invitation was sent successfully.' })
-    } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Unable to send the board invitation.'
-      setError(message)
-      setNotification({ type: 'error', message })
+    } catch {
+      // Error notification handled in handleInviteMember
+    }
+  }
+
+  const handleRemoveMember = async (memberId) => {
+    try {
+      const res = await removeBoardMember(boardId, memberId)
+      if (res.data.board) {
+        setBoard(res.data.board)
+      } else {
+        setBoard((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            members: (prev.members || []).filter((m) => String(m._id || m) !== String(memberId)),
+          }
+        })
+      }
+      setCards((prev) =>
+        prev.map((c) => ({
+          ...c,
+          members: (c.members || []).filter((m) => String(m._id || m) !== String(memberId)),
+        }))
+      )
+      setNotification({ type: 'success', message: res.data.message || 'Member removed successfully.' })
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Unable to remove member.'
+      setNotification({ type: 'error', message: msg })
+      throw err
     }
   }
 
@@ -398,30 +438,23 @@ export const useBoardWorkspace = () => {
     loading,
     error,
     notification,
-    draggedCard,
-    draggedColumn,
     selectedCard,
-    editingCard,
     modalOpen,
     title,
     description,
     list,
     file,
-    commentText,
-    commentSaving,
     saving,
+    commentSaving,
     memberModalOpen,
     memberEmail,
     columnModalOpen,
     columnName,
-    setDraggedCard,
-    setDraggedColumn,
     setSelectedCard,
     setTitle,
     setDescription,
     setList,
     setFile,
-    setCommentText,
     setMemberModalOpen,
     setMemberEmail,
     setColumnModalOpen,
@@ -431,13 +464,13 @@ export const useBoardWorkspace = () => {
     setModalOpen,
     openCreate,
     openCard,
-    openEdit,
     closeCardForm,
     handleCardSubmit,
-    moveCard,
-    moveColumn,
+    handleReorderCards,
+    handleReorderColumns,
+    setCards,
+    saveColumns,
     handleDelete,
-    handleAddComment,
     handleUpdateCardDetails,
     handleUploadAttachment,
     handleDeleteAttachment,
@@ -448,5 +481,8 @@ export const useBoardWorkspace = () => {
     handleRenameColumn,
     handleDeleteColumn,
     handleAddMember,
+    handleInviteMember,
+    handleRemoveMember,
+    handleCloseCardModal,
   }
 }

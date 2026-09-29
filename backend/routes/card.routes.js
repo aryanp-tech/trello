@@ -4,6 +4,7 @@ const {
   getBoardCards,
   updateCard,
   deleteCard,
+  reorderCards,
   addComment,
   updateComment,
   deleteComment,
@@ -20,6 +21,9 @@ router.post('/', authMiddleware, uploadCardFile.single('file'), createCard);
 
 // Get all cards for a specific board
 router.get('/', authMiddleware, getBoardCards);
+
+// Reorder cards on board
+router.put('/reorder', authMiddleware, reorderCards);
 
 // Update an existing card
 router.put('/:cardId', authMiddleware, uploadCardFile.single('file'), updateCard);

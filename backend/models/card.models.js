@@ -82,9 +82,16 @@ const cardSchema = new mongoose.Schema(
             ],
             default: [],
         },
+        members: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+            },
+        ],
     },
     { timestamps: true }
 );
 
-module.exports = mongoose.model('Card', cardSchema);
+cardSchema.index({ board: 1, list: 1, position: 1 });
 
+module.exports = mongoose.model('Card', cardSchema);

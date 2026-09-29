@@ -1,16 +1,20 @@
+import { DndContext, DragOverlay } from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useBoardPan } from "../hooks/useBoardPan";
+import { useBoardDnd } from "../hooks/useBoardDnd";
 import BoardColumn from "./BoardColumn";
+import { CardOverlay, ColumnOverlay } from "./board/BoardOverlays";
 
 const BoardCanvas = ({
-  columns,
-  cards,
+  columns = [],
+  cards = [],
+  setCards,
+  onReorderCards,
+  onReorderColumns,
   onCardOpen,
-  onCardDragStart,
-  onCardDragEnd,
-  onDrop,
-  onColumnDragStart,
-  onColumnDragEnd,
-  onColumnDrop,
   onRename,
   onDeleteColumn,
   onCreateCard,
@@ -23,43 +27,81 @@ const BoardCanvas = ({
     handlePointerUp,
   } = useBoardPan();
 
-  return (
-// The main canvas for the board, allowing horizontal scrolling and panning
+  // All drag-and-drop state, sensors, and event handlers managed in separated hook
+  const {
+    sensors,
+    activeItem,
+    columnIds,
+    collisionDetection,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleDragCancel,
+  } = useBoardDnd({
+    columns,
+    cards,
+    setCards,
+    onReorderCards,
+    onReorderColumns,
+  });
 
-    <div
-      ref={boardScrollRef}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      className="board-scrollbar flex min-h-[calc(100vh-160px)] cursor-grab items-start gap-3 overflow-x-auto pb-0 active:cursor-grabbing"
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={collisionDetection}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
-        {/* // Rendering each column in the board and passing necessary props for card management */}
-      {columns.map((column) => (
-        <BoardColumn
-          key={column.id}
-          column={column}
-          cards={cards.filter((card) => card.list === column.id)}
-          onCardOpen={onCardOpen}
-          onCardDragStart={onCardDragStart}
-          onCardDragEnd={onCardDragEnd}
-          onDrop={onDrop}
-          onColumnDragStart={onColumnDragStart}
-          onColumnDragEnd={onColumnDragEnd}
-          onColumnDrop={onColumnDrop}
-          onRename={onRename}
-          onDelete={onDeleteColumn}
-          onCreateCard={onCreateCard}
-        />
-      ))}
-      <button
-        type="button"
-        onClick={onAddColumn}
-        className="h-12 w-72 shrink-0 rounded-xl bg-[#477fba] px-4 text-left text-sm font-semibold text-white hover:bg-[#5798d5]"
+      <div
+        ref={boardScrollRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="board-scrollbar flex h-full cursor-grab items-start gap-3 overflow-x-auto pb-4 active:cursor-grabbing select-none"
       >
-        ＋ Add another list
-      </button>
-    </div>
+        <SortableContext
+          items={columnIds}
+          strategy={horizontalListSortingStrategy}
+        >
+          {columns.map((column) => (
+            <BoardColumn
+              key={column.id}
+              column={column}
+              cards={cards.filter((card) => card.list === column.id)}
+              onCardOpen={onCardOpen}
+              onRename={onRename}
+              onDelete={onDeleteColumn}
+              onCreateCard={onCreateCard}
+            />
+          ))}
+        </SortableContext>
+
+        <button
+          type="button"
+          onClick={onAddColumn}
+          className="h-12 w-72 shrink-0 rounded-xl border border-slate-200/90 bg-white/80 hover:bg-white text-slate-800 px-4 text-left text-sm font-semibold shadow-sm hover:shadow transition-all dark:border-transparent dark:bg-[#477fba] dark:hover:bg-[#5798d5] dark:text-white"
+        >
+          ＋ Add another list
+        </button>
+      </div>
+
+      {/* Visual drag overlay preview */}
+      <DragOverlay>
+        {activeItem?.type === "Card" && (
+          <CardOverlay card={activeItem.card} />
+        )}
+        {/* Whole column selected and picked with all its cards and full UI */}
+        {activeItem?.type === "Column" && (
+          <ColumnOverlay
+            column={activeItem.column}
+            cards={cards.filter((c) => c.list === activeItem.column.id)}
+          />
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 };
 

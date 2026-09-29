@@ -1,14 +1,24 @@
-import { useState } from "react";
-import { getMergedColumnOptions } from "./cardUtils";
+import { useEffect, useRef, useState } from "react";
+import { getMergedColumnOptions, formatStatusLabel } from "./cardUtils";
 
-//component for card statuss..
-//like done, final, working or any custom status
-
-const CardListSelector = ({ currentColumn, columns = [], onSelectColumn }) => {
+// Component for card status selection with 4 fixed suggestions and custom manual input
+const CardListSelector = ({ currentColumn, onSelectColumn }) => {
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [manualInput, setManualInput] = useState("");
+  const menuRef = useRef(null);
 
-  const mergedOptions = getMergedColumnOptions(columns);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (columnMenuOpen && menuRef.current && !menuRef.current.contains(e.target)) {
+        setColumnMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [columnMenuOpen]);
+
+  // Only the exact 4 standard suggestions - no other columns
+  const suggestions = getMergedColumnOptions();
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
@@ -20,21 +30,24 @@ const CardListSelector = ({ currentColumn, columns = [], onSelectColumn }) => {
 
   const isCurrentColumn = (col) => {
     if (!currentColumn) return false;
+    const currentFormatted = formatStatusLabel(currentColumn.label || currentColumn.id);
     return (
       col.id === currentColumn.id ||
-      col.label.toLowerCase() === (currentColumn.label || "").toLowerCase()
+      col.label.toLowerCase() === currentFormatted.toLowerCase()
     );
   };
 
+  const displayLabel = formatStatusLabel(currentColumn?.label || currentColumn?.id);
+
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       {/* Dropdown trigger button */}
       <button
         type="button"
         onClick={() => setColumnMenuOpen(!columnMenuOpen)}
-        className="flex items-center gap-1.5 rounded bg-[#2b313a] px-3 py-1.5 text-xs font-semibold text-[#c7d1db] hover:bg-[#343b46] hover:text-white transition"
+        className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 dark:border-transparent dark:bg-[#2b313a] dark:text-[#c7d1db] dark:hover:bg-[#343b46] dark:hover:text-white transition"
       >
-        <span>{currentColumn?.label || "List"}</span>
+        <span>{displayLabel}</span>
         <svg
           className="w-3.5 h-3.5 opacity-75"
           fill="none"
@@ -51,19 +64,16 @@ const CardListSelector = ({ currentColumn, columns = [], onSelectColumn }) => {
       </button>
 
       {columnMenuOpen && (
-        <div className="absolute left-0 top-9 z-50 w-64 rounded-lg border border-[#3b424e] bg-[#22272e] p-2.5 shadow-2xl">
+        <div className="absolute left-0 top-9 z-50 w-64 rounded-lg border border-slate-200 bg-white p-2.5 shadow-xl dark:border-[#3b424e] dark:bg-[#22272e] animate-in fade-in zoom-in-95 duration-100">
           {/* Manual input: user can write whatever they want */}
           <div className="mb-2.5">
-            <div className="px-1 py-1 text-[11px] font-semibold text-white/60 uppercase tracking-wider">
-              Write custom status / list
-            </div>
-            <form onSubmit={handleManualSubmit} className="flex gap-1.5 mt-1">
+            <form onSubmit={handleManualSubmit} className="flex gap-1.5">
               <input
                 type="text"
                 value={manualInput}
                 onChange={(e) => setManualInput(e.target.value)}
-                placeholder="e.g. In Review, Blocked..."
-                className="w-full rounded border border-[#444c56] bg-[#161a1f] px-2.5 py-1.5 text-xs text-white placeholder-white/35 focus:border-blue-500 focus:outline-none"
+                placeholder="write your custom status"
+                className="w-full rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-blue-500 focus:outline-none dark:border-[#444c56] dark:bg-[#161a1f] dark:text-white dark:placeholder-white/35"
                 autoFocus
               />
               <button
@@ -76,17 +86,17 @@ const CardListSelector = ({ currentColumn, columns = [], onSelectColumn }) => {
             </form>
           </div>
 
-          {/* Options list */}
-          <div className="border-t border-[#373d47] pt-2">
-            <div className="px-1 py-1 text-[11px] font-semibold text-white/50 uppercase tracking-wider">
-              Options
+          {/* Exact 4 suggestions only */}
+          <div className="border-t border-slate-100 dark:border-[#373d47] pt-2">
+            <div className="px-1 py-1 text-[11px] font-semibold text-slate-400 dark:text-white/50 uppercase tracking-wider">
+              Suggestions (4 options)
             </div>
-            <div className="max-h-48 overflow-y-auto space-y-0.5">
-              {mergedOptions.map((col) => {
+            <div className="space-y-0.5 mt-1">
+              {suggestions.map((col) => {
                 const active = isCurrentColumn(col);
                 return (
                   <button
-                    key={col.id || col.label}
+                    key={col.id}
                     type="button"
                     onClick={() => {
                       setColumnMenuOpen(false);
@@ -94,12 +104,12 @@ const CardListSelector = ({ currentColumn, columns = [], onSelectColumn }) => {
                     }}
                     className={`flex w-full items-center justify-between rounded px-2.5 py-1.5 text-left text-xs transition ${
                       active
-                        ? "bg-blue-600/30 text-blue-300 font-semibold"
-                        : "text-[#c7d1db] hover:bg-white/10 hover:text-white"
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-600/30 dark:text-blue-300 font-semibold"
+                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-[#c7d1db] dark:hover:bg-white/10 dark:hover:text-white"
                     }`}
                   >
                     <span>{col.label}</span>
-                    {active && <span className="text-blue-400">✓</span>}
+                    {active && <span className="text-blue-600 dark:text-blue-400">✓</span>}
                   </button>
                 );
               })}
@@ -112,4 +122,3 @@ const CardListSelector = ({ currentColumn, columns = [], onSelectColumn }) => {
 };
 
 export default CardListSelector;
-

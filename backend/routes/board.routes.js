@@ -1,22 +1,40 @@
 const express = require('express');
-const { createBoard, getAllBoards, updateBoard, deleteBoard, deleteBoardColumn, inviteBoardMember, acceptBoardInvite } = require('../controllers/board.controller');
+const {
+  createBoard,
+  getAllBoards,
+  updateBoard,
+  deleteBoard,
+  inviteBoardMember,
+  acceptBoardInvite,
+  removeBoardMember,
+} = require('../controllers/board.controller');
+const {
+  createColumn,
+  deleteColumn,
+} = require('../controllers/card.controller');
 const { authMiddleware } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-//create board
+// Create board
 router.post('/', authMiddleware, createBoard);
 
-//get all boards
+// Get all boards
 router.get('/', authMiddleware, getAllBoards);
 
-//update board
+// Update board
 router.put('/:id', authMiddleware, updateBoard);
-router.delete('/:id/columns/:columnId', authMiddleware, deleteBoardColumn);
+
+// Board column management (routed to card.controller)
+router.post('/:id/columns', authMiddleware, createColumn);
+router.delete('/:id/columns/:columnId', authMiddleware, deleteColumn);
+
+// Board member management (owner only for add/remove)
 router.post('/:id/invites', authMiddleware, inviteBoardMember);
 router.get('/invites/:token', authMiddleware, acceptBoardInvite);
+router.delete('/:id/members/:memberId', authMiddleware, removeBoardMember);
 
-//delete board
+// Delete board
 router.delete('/:id', authMiddleware, deleteBoard);
 
 module.exports = router;

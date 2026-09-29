@@ -31,7 +31,15 @@ const Login = () => {
       const response = await loginUser(formData)
       login(response)
       const inviteToken = searchParams.get('invite')
-      navigate(inviteToken ? `/board-invites/${inviteToken}` : '/dashboard')
+      if (inviteToken) {
+        navigate(`/board-invites/${inviteToken}`)
+      } else if (location.state?.from) {
+        const from = location.state.from
+        const target = typeof from === 'string' ? from : `${from.pathname || ''}${from.search || ''}${from.hash || ''}`
+        navigate(target || '/dashboard')
+      } else {
+        navigate('/dashboard')
+      }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Login failed')
     } finally {
@@ -40,21 +48,21 @@ const Login = () => {
   }
 
   return (
-    <div className='flex min-h-screen items-center justify-center bg-[#111214] px-4 py-10'>
-      <div className='w-full max-w-md rounded-2xl border border-[#34363a] bg-[#202225] p-8 shadow-2xl'>
+    <div className='flex min-h-screen items-center justify-center bg-white px-4 py-10'>
+      <div className='w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl'>
         <div className='mb-8 text-center'>
-          <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-lg font-semibold text-white'>
+          <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-lg font-semibold text-white shadow-md shadow-blue-500/20'>
             trello
           </div>
 
-          <h1 className='text-2xl font-semibold tracking-tight text-white'>Welcome back</h1>
-          <p className='mt-2 text-sm text-white/55'>Sign in to continue to your account</p>
-          {location.state?.message && <p className='mt-4 rounded-md bg-emerald-950/50 px-3 py-2 text-sm text-emerald-200'>{location.state.message}</p>}
+          <h1 className='text-2xl font-semibold tracking-tight text-slate-900'>Welcome back</h1>
+          <p className='mt-2 text-sm text-slate-500'>Sign in to continue to your account</p>
+          {location.state?.message && <p className='mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700'>{location.state.message}</p>}
         </div>
 
         <form onSubmit={handleSubmit} className='space-y-5'>
           <div>
-            <label htmlFor='email' className='mb-2 block text-sm font-medium text-white/80'>Email address</label>
+            <label htmlFor='email' className='mb-2 block text-sm font-medium text-slate-700'>Email address</label>
           
             {/* // input field for email address with styling and validation */}
             <input
@@ -64,7 +72,7 @@ const Login = () => {
               value={formData.email}
               onChange={handleChange}
               placeholder='Enter your email'
-              className='w-full rounded-xl border border-[#34363a] bg-[#0d0e10] px-3.5 py-2.5 text-white outline-none transition placeholder:text-white/35 focus:border-[#5798f5] focus:ring-2 focus:ring-[#5798f5]/30'
+              className='w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20'
               required
             />
           </div>
@@ -72,7 +80,8 @@ const Login = () => {
           {/* //forgot password link and password input field with show/hide functionality */}
           <div>
             <div className='mb-2 flex items-center justify-between gap-3'>
-              <label htmlFor='password' className='text-sm font-medium text-white/80'>Password</label>
+              
+              <label htmlFor='password' className='text-sm font-medium text-slate-700'>Password</label>
               <button type='button' onClick={() => navigate('/forgot-password')} className='text-[10px] font-medium text-blue-600 transition hover:text-blue-700 cursor-pointer'>
                 Forgot password?
               </button>
@@ -86,7 +95,7 @@ const Login = () => {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder='Enter your password'
-                className='w-full rounded-xl border border-[#34363a] bg-[#0d0e10] px-3.5 py-2.5 pr-11 text-white outline-none transition placeholder:text-white/35 focus:border-[#5798f5] focus:ring-2 focus:ring-[#5798f5]/30'
+                className='w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 pr-11 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20'
                 required
               />
               <button
@@ -100,7 +109,7 @@ const Login = () => {
             </div>
           </div>
 
-          {error && <p className='text-sm text-red-300'>{error}</p>}
+          {error && <p className='text-sm text-red-600'>{error}</p>}
 
           {/* //sigin button with loading state */}
           <button
@@ -113,7 +122,7 @@ const Login = () => {
         </form>
 
         {/* //moving to the register page if the user doesn't have an account */}
-        <p className='mt-6 text-center text-sm text-white/55'>
+        <p className='mt-6 text-center text-sm text-slate-500'>
           Don’t have an account?{' '}
           <button
             type='button'

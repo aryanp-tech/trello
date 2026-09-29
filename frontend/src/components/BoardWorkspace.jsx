@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { useTheme } from "../context/useTheme";
 import { useBoardWorkspace } from "../hooks/useBoardWorkspace";
 import BoardCanvas from "./BoardCanvas";
 import BoardWorkspaceHeader from "./BoardWorkspaceHeader";
@@ -12,17 +13,18 @@ import NotificationToast from "./NotificationToast";
 const BoardWorkspace = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const workspace = useBoardWorkspace();
 
   if (workspace.loading)
     return (
-      <div className="min-h-screen bg-[#111214] p-8 text-white">
+      <div className="min-h-screen bg-[#f5f7fb] p-8 text-slate-800 dark:bg-[#111214] dark:text-white">
         Loading board...
       </div>
     );
   if (!workspace.board)
     return (
-      <div className="min-h-screen bg-[#111214] p-8 text-white">
+      <div className="min-h-screen bg-[#f5f7fb] p-8 text-slate-800 dark:bg-[#111214] dark:text-white">
         Board not found
       </div>
     );
@@ -30,10 +32,12 @@ const BoardWorkspace = () => {
     // The main workspace for a specific board, handling board data, modals, and notifications
   return (
     <main
-      className="min-h-screen bg-[#111214] bg-cover bg-center px-4 pb-0 pt-4 text-white"
+      className="h-screen flex flex-col overflow-hidden bg-[#f5f7fb] bg-cover bg-center px-4 pb-0 pt-4 text-slate-800 dark:bg-[#111214] dark:text-white transition-colors"
       style={{
         backgroundImage: workspace.board.backgroundImage
-          ? `linear-gradient(rgba(17,18,20,.78), rgba(17,18,20,.9)), url(${workspace.board.backgroundImage})`
+          ? isDark
+            ? `linear-gradient(rgba(17,18,20,.78), rgba(17,18,20,.9)), url(${workspace.board.backgroundImage})`
+            : `linear-gradient(rgba(245,247,251,.82), rgba(245,247,251,.92)), url(${workspace.board.backgroundImage})`
           : undefined,
       }}
     >
@@ -42,44 +46,44 @@ const BoardWorkspace = () => {
         notification={workspace.notification}
         onClose={() => workspace.setNotification(null)}
       />
-      <BoardWorkspaceHeader
-        board={workspace.board}
-        user={user}
-        onBack={() => navigate("/dashboard")}
-        onProfile={() => navigate("/profile")}
-        onMembers={() => workspace.setMemberModalOpen(true)}
-      />
+      <div className="shrink-0 relative z-20">
+        <BoardWorkspaceHeader
+          board={workspace.board}
+          user={user}
+          onBack={() => navigate("/dashboard")}
+          onProfile={() => navigate("/profile")}
+          onMembers={() => workspace.setMemberModalOpen(true)}
+          onRemoveMember={workspace.handleRemoveMember}
+        />
 
-      {workspace.error && (
-        <p className="mb-4 rounded-md bg-red-950/70 px-4 py-3 text-sm">
-          {workspace.error}
-        </p>
-      )}
+        {workspace.error && (
+          <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-transparent dark:bg-red-950/70 dark:text-red-200">
+            {workspace.error}
+          </p>
+        )}
+      </div>
 
-      <BoardCanvas
-        columns={workspace.columns}
-        cards={workspace.cards}
-        onCardOpen={workspace.openCard}
-        onCardDragStart={workspace.setDraggedCard}
-        onCardDragEnd={() => workspace.setDraggedCard(null)}
-        onDrop={workspace.moveCard}
-        onColumnDragStart={(column) => workspace.setDraggedColumn(column.id)}
-        onColumnDragEnd={() => workspace.setDraggedColumn(null)}
-        onColumnDrop={workspace.moveColumn}
-        onRename={workspace.handleRenameColumn}
-        onDeleteColumn={workspace.handleDeleteColumn}
-        onCreateCard={workspace.openCreate}
-        onAddColumn={() => workspace.setColumnModalOpen(true)}
-      />
+      <div className="flex-1 min-h-0 min-w-0">
+        <BoardCanvas
+          columns={workspace.columns}
+          cards={workspace.cards}
+          setCards={workspace.setCards}
+          onReorderCards={workspace.handleReorderCards}
+          onReorderColumns={workspace.handleReorderColumns}
+          onCardOpen={workspace.openCard}
+          onRename={workspace.handleRenameColumn}
+          onDeleteColumn={workspace.handleDeleteColumn}
+          onCreateCard={workspace.openCreate}
+          onAddColumn={() => workspace.setColumnModalOpen(true)}
+        />
+      </div>
 
       {/* // Modals for creating/editing cards, adding columns, and adding members */}
       {workspace.modalOpen && (
         <CardFormModal
-          editingCard={workspace.editingCard}
           title={workspace.title}
           description={workspace.description}
           list={workspace.list}
-          columns={workspace.columns}
           saving={workspace.saving}
           onTitleChange={workspace.setTitle}
           onDescriptionChange={workspace.setDescription}
@@ -115,16 +119,18 @@ const BoardWorkspace = () => {
       {workspace.selectedCard && (
         <CardDetailsModal
           card={workspace.selectedCard}
+          board={workspace.board}
           columns={workspace.columns}
           currentUser={user}
           onUpdateCard={workspace.handleUpdateCardDetails}
+          onInviteMember={workspace.handleInviteMember}
           onUploadAttachment={workspace.handleUploadAttachment}
           onDeleteAttachment={workspace.handleDeleteAttachment}
           onAddComment={workspace.handleAddCommentWithFile}
           onUpdateComment={workspace.handleUpdateComment}
           onDeleteComment={workspace.handleDeleteComment}
           onDelete={() => workspace.handleDelete(workspace.selectedCard._id)}
-          onClose={() => workspace.setSelectedCard(null)}
+          onClose={workspace.handleCloseCardModal}
         />
       )}
     </main>

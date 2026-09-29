@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/user.model');
+const Card = require('../models/card.models');
 const BoardInvite = require('../models/board-invite.model');
 const PasswordReset = require('../models/password-reset.model');
 const { sendPasswordResetEmail } = require('../services/mail.service');
@@ -75,6 +76,13 @@ const registerUser = async (req, res) => {
                 board.members.push(newUser._id);
                 await board.save();
             }
+
+            if (invite.card) {
+                await Card.findByIdAndUpdate(invite.card, {
+                    $addToSet: { members: newUser._id },
+                });
+            }
+
             invite.acceptedAt = new Date();
             invite.revokedAt = new Date();
             await invite.save();
@@ -97,6 +105,7 @@ const registerUser = async (req, res) => {
                 email: newUser.email,
             },
             boardId: invite?.board?._id || null,
+            cardId: invite?.card || null,
         });
     } catch (error) {
         console.error('Register user error:', error);
@@ -113,7 +122,8 @@ const loginUser = async (req, res) => {
             return res.status(400).json({ message: 'Please provide email and password' });
         }
 
-        const user = await User.findOne({ email });
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }

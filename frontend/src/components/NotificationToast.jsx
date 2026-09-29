@@ -15,7 +15,7 @@ const NotificationToast = ({ notification, onClose }) => {
   //notification for email send message
   return (
     <div
-      className={`fixed right-5 top-5 z-50 flex w-[min(22rem,calc(100vw-2.5rem))] items-start gap-3 rounded-xl border px-4 py-3 shadow-2xl ${isError ? "border-red-400/30 bg-[#3a2025] text-red-100" : "border-emerald-400/30 bg-[#18352d] text-emerald-100"}`}
+      className={`fixed right-5 top-5 z-[60] flex w-[min(22rem,calc(100vw-2.5rem))] items-start gap-3 rounded-xl border px-4 py-3 shadow-2xl ${isError ? "border-red-400/30 bg-[#3a2025] text-red-100" : "border-emerald-400/30 bg-[#18352d] text-emerald-100"}`}
       role="status"
     >
       <span

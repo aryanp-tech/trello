@@ -1,10 +1,13 @@
-import { useRef, useState } from "react";
-import { formatFileSize, formatTimestamp } from "./cardUtils";
+import { useEffect, useRef, useState } from "react";
+import { formatFileSize } from "./cardUtils";
+import CommentItem from "./CommentItem";
+import CardMentionDropdown from "./CardMentionDropdown";
+import CardActivityStream from "./CardActivityStream";
 
-//component for card comments, add, update and delete commonts..
-
+// Component for card comments, composer, mention autocomplete, and activity stream
 const CardCommentsSection = ({
   card,
+  boardMembers = [],
   currentUser,
   onAddComment,
   onUpdateComment,
@@ -14,12 +17,142 @@ const CardCommentsSection = ({
   const [commentFile, setCommentFile] = useState(null);
   const [commentSaving, setCommentSaving] = useState(false);
 
+  // Mention autocomplete state
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
+
   // Edit comment state
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentText, setEditingCommentText] = useState("");
 
   const commentTextareaRef = useRef(null);
   const commentFileInputRef = useRef(null);
+  const mentionDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        mentionQuery !== null &&
+        mentionDropdownRef.current &&
+        !mentionDropdownRef.current.contains(e.target) &&
+        commentTextareaRef.current &&
+        !commentTextareaRef.current.contains(e.target)
+      ) {
+        setMentionQuery(null);
+        setMentionStartIndex(-1);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [mentionQuery]);
+
+  const comments = card.comments || [];
+
+  // Resolve members assigned to this specific card (ensuring card owner is always included)
+  const memberList = [...(card.members || [])];
+  const ownerObj = card.createdBy;
+  const ownerId = String(ownerObj?._id || ownerObj || "");
+
+  if (ownerId && !memberList.some((m) => String(m?._id || m) === ownerId)) {
+    memberList.unshift(ownerObj);
+  }
+
+  const currentUserId = String(currentUser?._id || currentUser?.id || "");
+  const currentUsername = (currentUser?.username || "").toLowerCase();
+
+  const cardMembers = memberList
+    .map((m) => {
+      if (typeof m === "object" && m !== null) {
+        return m;
+      }
+      const found = (boardMembers || []).find((b) => String(b._id) === String(m));
+      return found || { _id: m, username: "Member" };
+    })
+    .filter((m) => {
+      // Exclude logged-in user so they don't see themselves in the @ mention list
+      const memberId = String(m._id || "");
+      const memberUsername = (m.username || "").toLowerCase();
+      if (currentUserId && memberId === currentUserId) return false;
+      if (currentUsername && memberUsername === currentUsername) return false;
+      return true;
+    });
+
+  const filteredMembers =
+    mentionQuery !== null
+      ? cardMembers.filter((m) => {
+          const name = (m.username || m.email || "").toLowerCase();
+          return name.includes(mentionQuery);
+        })
+      : [];
+
+  const handleCommentChange = (e) => {
+    const val = e.target.value;
+    setCommentText(val);
+
+    const cursor = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursor);
+    const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9._-]*)$/);
+
+    if (match) {
+      const query = match[1];
+      const atIndex = textBeforeCursor.lastIndexOf("@");
+      setMentionQuery(query.toLowerCase());
+      setMentionStartIndex(atIndex);
+      setMentionSelectedIndex(0);
+    } else {
+      setMentionQuery(null);
+      setMentionStartIndex(-1);
+    }
+  };
+
+  const handleSelectMember = (member) => {
+    const name = member.username || member.email?.split("@")[0] || "member";
+    if (mentionStartIndex === -1) return;
+    const cursor = commentTextareaRef.current?.selectionStart || mentionStartIndex;
+    const before = commentText.slice(0, mentionStartIndex);
+    const after = commentText.slice(cursor);
+    const insertText = `@${name} `;
+    const newText = `${before}${insertText}${after}`;
+
+    setCommentText(newText);
+    setMentionQuery(null);
+    setMentionStartIndex(-1);
+
+    setTimeout(() => {
+      if (commentTextareaRef.current) {
+        commentTextareaRef.current.focus();
+        const newPos = before.length + insertText.length;
+        commentTextareaRef.current.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  };
+
+  const handleKeyDown = (e) => {
+    if (mentionQuery === null) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMentionSelectedIndex((prev) =>
+        filteredMembers.length > 0 ? (prev + 1) % filteredMembers.length : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMentionSelectedIndex((prev) =>
+        filteredMembers.length > 0
+          ? (prev - 1 + filteredMembers.length) % filteredMembers.length
+          : 0
+      );
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      if (filteredMembers.length > 0 && filteredMembers[mentionSelectedIndex]) {
+        e.preventDefault();
+        handleSelectMember(filteredMembers[mentionSelectedIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setMentionQuery(null);
+      setMentionStartIndex(-1);
+    }
+  };
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();
@@ -30,6 +163,7 @@ const CardCommentsSection = ({
       await onAddComment(card._id, commentText.trim(), commentFile);
       setCommentText("");
       setCommentFile(null);
+      setMentionQuery(null);
     } catch (err) {
       console.error("Add comment error:", err);
     } finally {
@@ -60,39 +194,50 @@ const CardCommentsSection = ({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header: Comments and Activity (clean text, no hide/show details button) */}
+      {/* Header: Comments and Activity */}
       <div className="flex items-center justify-between">
-        <div className="text-sm font-semibold text-white">
+        <div className="text-sm font-semibold text-slate-900 dark:text-white">
           Comments and activity
         </div>
       </div>
 
-      {/* Comment Composer without text formatting tools */}
+      {/* Comment Composer */}
       <form onSubmit={handleSubmitComment} className="flex flex-col gap-2">
-        <div className="rounded-lg border border-[#373c44] bg-[#16181c] p-3 focus-within:border-blue-500 transition">
+        <div className="relative rounded-lg border border-slate-200 bg-slate-50 p-3 focus-within:border-blue-500 focus-within:bg-white dark:border-[#373c44] dark:bg-[#16181c] transition">
           <textarea
             ref={commentTextareaRef}
             value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            placeholder="Write a comment..."
+            onChange={handleCommentChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Write a comment... (type @ to mention card members)"
             rows={3}
-            className="w-full resize-y bg-transparent text-sm text-white placeholder-white/40 outline-none leading-relaxed no-scrollbar"
+            className="w-full resize-y bg-transparent text-sm text-slate-900 placeholder:text-slate-400 dark:text-white dark:placeholder-white/40 outline-none leading-relaxed no-scrollbar"
+          />
+
+          {/* Autocomplete dropdown for members on this card: positioned below input */}
+          <CardMentionDropdown
+            ref={mentionDropdownRef}
+            mentionQuery={mentionQuery}
+            cardMembers={cardMembers}
+            filteredMembers={filteredMembers}
+            selectedIndex={mentionSelectedIndex}
+            onSelectMember={handleSelectMember}
           />
 
           {/* Attached File Chip */}
           {commentFile && (
-            <div className="mt-2 flex items-center justify-between rounded bg-[#1a2130] px-3 py-1.5 text-xs">
-              <div className="flex items-center gap-2 truncate text-blue-300">
+            <div className="mt-2 flex items-center justify-between rounded bg-blue-50 dark:bg-[#1a2130] px-3 py-1.5 text-xs border border-blue-200/60 dark:border-transparent">
+              <div className="flex items-center gap-2 truncate text-blue-700 dark:text-blue-300">
                 <span>📎</span>
                 <span className="truncate font-medium">{commentFile.name}</span>
-                <span className="text-white/50">
+                <span className="text-slate-500 dark:text-white/50">
                   ({formatFileSize(commentFile.size)})
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setCommentFile(null)}
-                className="ml-2 text-white/50 hover:text-white"
+                className="ml-2 text-slate-400 hover:text-slate-700 dark:text-white/50 dark:hover:text-white"
                 title="Remove file"
               >
                 ✕
@@ -105,7 +250,7 @@ const CardCommentsSection = ({
           <button
             type="submit"
             disabled={commentSaving || (!commentText.trim() && !commentFile)}
-            className="rounded bg-[#579dff] px-4 py-1.5 text-xs font-semibold text-[#091e42] hover:bg-[#85b8ff] disabled:opacity-40 disabled:cursor-not-allowed transition"
+            className="rounded bg-blue-600 hover:bg-blue-500 px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm"
           >
             {commentSaving ? "Saving..." : "Save"}
           </button>
@@ -114,8 +259,8 @@ const CardCommentsSection = ({
           <button
             type="button"
             onClick={() => commentFileInputRef.current?.click()}
-            className={`flex items-center gap-1 rounded px-2.5 py-1 text-xs text-[#c7d1db] hover:bg-white/10 hover:text-white transition ${
-              commentFile ? "text-blue-400" : ""
+            className={`flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:border-transparent dark:text-[#c7d1db] dark:hover:bg-white/10 dark:hover:text-white transition shadow-sm ${
+              commentFile ? "text-blue-600 font-semibold" : ""
             }`}
             title="Attach file"
           >
@@ -133,184 +278,33 @@ const CardCommentsSection = ({
 
       {/* Stream of Comments & Activities */}
       <div className="flex flex-col gap-4 overflow-y-auto no-scrollbar pr-1">
-        {/* Activity entries */}
-        {card.activities && card.activities.length > 0 && (
+        {/* Comments List */}
+        {comments.length > 0 ? (
           <div className="flex flex-col gap-2">
-            {card.activities.map((act, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-2 text-xs text-white/60"
-              >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-800 text-[11px] font-bold text-white uppercase">
-                  {act.user?.charAt(0) || "U"}
-                </div>
-                <div className="pt-0.5">
-                  <span className="font-semibold text-white/80">
-                    {act.user}{" "}
-                  </span>
-                  <span>{act.text}</span>
-                  <span className="ml-1.5 text-[10px] text-white/40">
-                    {formatTimestamp(act.createdAt)}
-                  </span>
-                </div>
-              </div>
+            {comments.map((cmt) => (
+              <CommentItem
+                key={cmt._id}
+                cmt={cmt}
+                currentUser={currentUser}
+                isEditingThis={editingCommentId === cmt._id}
+                editingCommentText={editingCommentText}
+                setEditingCommentText={setEditingCommentText}
+                handleSaveEditComment={handleSaveEditComment}
+                setEditingCommentId={setEditingCommentId}
+                handleDeleteComment={handleDeleteComment}
+                setCommentText={setCommentText}
+                commentTextareaRef={commentTextareaRef}
+              />
             ))}
           </div>
-        )}
-
-        {/* Comments List */}
-        {card.comments && card.comments.length > 0 ? (
-          card.comments.map((cmt) => {
-            const isAuthor =
-              currentUser &&
-              (cmt.author === currentUser.id ||
-                cmt.author === currentUser._id ||
-                cmt.authorName === currentUser.username);
-
-            const isEditingThis = editingCommentId === cmt._id;
-
-            return (
-              <div key={cmt._id} className="flex items-start gap-2.5">
-                {/* Avatar */}
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00a3bf] text-xs font-bold text-[#091e42] uppercase shadow-sm">
-                  {cmt.authorName?.charAt(0) || "A"}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span className="font-bold text-white">
-                      {cmt.authorName || "User"}
-                    </span>
-                    <span className="text-[11px] text-white/50">
-                      {formatTimestamp(cmt.createdAt)}
-                    </span>
-                    {cmt.updatedAt && (
-                      <span className="text-[10px] text-white/40 italic">
-                        (edited)
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Comment Box */}
-                  {isEditingThis ? (
-                    <div className="mt-1 flex flex-col gap-2 rounded-lg border border-blue-500 bg-[#16181c] p-2.5">
-                      <textarea
-                        value={editingCommentText}
-                        onChange={(e) => setEditingCommentText(e.target.value)}
-                        rows={3}
-                        className="w-full bg-transparent text-sm text-white outline-none resize-y no-scrollbar"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSaveEditComment(cmt._id)}
-                          className="rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-500"
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingCommentId(null);
-                            setEditingCommentText("");
-                          }}
-                          className="rounded px-2.5 py-1 text-xs text-white/60 hover:text-white"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-1 rounded-lg border border-[#323940] bg-[#22272b] p-3 text-sm text-white/90 shadow-sm whitespace-pre-wrap leading-relaxed">
-                      {cmt.text}
-
-                      {/* Comment attachment preview */}
-                      {cmt.attachment?.url && (
-                        <div className="mt-2 border-t border-white/10 pt-2">
-                          {cmt.attachment.mimeType?.startsWith("image/") ? (
-                            <a
-                              href={cmt.attachment.url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <img
-                                src={cmt.attachment.url}
-                                alt={cmt.attachment.originalName}
-                                className="max-h-40 rounded object-contain border border-white/10"
-                              />
-                            </a>
-                          ) : (
-                            <a
-                              href={cmt.attachment.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              download={cmt.attachment.originalName}
-                              className="flex items-center gap-2 rounded bg-black/30 px-2.5 py-1.5 text-xs text-blue-300 hover:bg-black/40"
-                            >
-                              <span>📎</span>
-                              <span className="truncate">
-                                {cmt.attachment.originalName}
-                              </span>
-                              <span className="text-[10px] text-white/50">
-                                ({formatFileSize(cmt.attachment.size)})
-                              </span>
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Actions: @, Edit, Delete */}
-                  {!isEditingThis && (
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-white/50 pl-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCommentText(
-                            (prev) => `${prev} @${cmt.authorName} `,
-                          );
-                          commentTextareaRef.current?.focus();
-                        }}
-                        className="hover:text-white hover:underline"
-                      >
-                        @
-                      </button>
-                      {isAuthor && (
-                        <>
-                          <span>•</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingCommentId(cmt._id);
-                              setEditingCommentText(cmt.text);
-                            }}
-                            className="hover:text-white hover:underline"
-                          >
-                            Edit
-                          </button>
-                          <span>•</span>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteComment(cmt._id)}
-                            className="text-red-400 hover:text-red-300 hover:underline"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })
         ) : (
-          <div className="py-6 text-center text-xs text-white/40 italic">
+          <div className="py-4 text-center text-xs text-white/40 italic">
             No comments yet. Be the first to comment!
           </div>
         )}
+
+        {/* Activity Stream */}
+        <CardActivityStream activities={card.activities} />
       </div>
     </div>
   );

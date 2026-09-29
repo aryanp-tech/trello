@@ -5,9 +5,11 @@ import CardCommentsSection from "./card/CardCommentsSection";
 
 const CardDetailsModal = ({
   card,
+  board,
   columns = [],
   currentUser,
   onUpdateCard,
+  onInviteMember,
   onUploadAttachment,
   onDeleteAttachment,
   onAddComment,
@@ -20,6 +22,41 @@ const CardDetailsModal = ({
   const [description, setDescription] = useState(card.description || "");
   const [savingTitle, setSavingTitle] = useState(false);
   const [savingDesc, setSavingDesc] = useState(false);
+
+  // Compute unique board members from board object
+  const allBoardMembers = [];
+  if (board?.createdBy) allBoardMembers.push(board.createdBy);
+  if (Array.isArray(board?.members)) allBoardMembers.push(...board.members);
+
+  const memberMap = new Map();
+  for (const m of allBoardMembers) {
+    const id = m?._id ? String(m._id) : String(m);
+    if (id && !memberMap.has(id)) {
+      memberMap.set(id, typeof m === "object" ? m : { _id: id, username: id });
+    }
+  }
+  const effectiveBoardMembers = Array.from(memberMap.values());
+
+  const cardOwnerId = String(card.createdBy?._id || card.createdBy || "");
+  const boardOwnerId = String(board?.createdBy?._id || board?.createdBy || "");
+  const currentUserId = String(currentUser?._id || currentUser?.id || "");
+  const canManageMembers = Boolean(
+    currentUserId && (currentUserId === boardOwnerId || currentUserId === cardOwnerId)
+  );
+
+  const handleToggleMember = async (memberId) => {
+    if (!canManageMembers) return;
+    const targetIdStr = String(memberId);
+    // Card owner cannot be removed
+    if (cardOwnerId && targetIdStr === cardOwnerId) return;
+
+    const currentMemberIds = (card.members || []).map((m) => String(m?._id || m));
+    const exists = currentMemberIds.includes(targetIdStr);
+    const nextMembers = exists
+      ? currentMemberIds.filter((id) => id !== targetIdStr)
+      : [...currentMemberIds, memberId];
+    await onUpdateCard(card._id, { members: nextMembers });
+  };
 
   const [prevCard, setPrevCard] = useState({ id: card._id, title: card.title, description: card.description });
   if (card._id !== prevCard.id || card.title !== prevCard.title || card.description !== prevCard.description) {
@@ -97,17 +134,16 @@ const CardDetailsModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 p-2 sm:p-4 backdrop-blur-sm overflow-y-auto no-scrollbar"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-2 sm:p-4 backdrop-blur-sm overflow-y-auto no-scrollbar"
       onClick={onClose}
     >
       <div
-        className="relative my-6 flex w-full max-w-5xl flex-col rounded-xl border border-[#373c44] bg-[#1d2127] text-[#d6d9dc] shadow-2xl overflow-hidden max-h-[92vh]"
+        className="relative my-6 flex w-full max-w-5xl flex-col rounded-xl border border-slate-200 bg-white text-slate-800 dark:border-[#373c44] dark:bg-[#1d2127] dark:text-[#d6d9dc] shadow-2xl overflow-hidden max-h-[92vh] transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar header */}
         <CardModalHeader
           currentColumn={currentColumn}
-          columns={columns}
           onSelectColumn={handleSelectColumn}
           onDeleteCard={handleDeleteCard}
           onClose={onClose}
@@ -119,6 +155,10 @@ const CardDetailsModal = ({
           <div className="md:col-span-7">
             <CardDescriptionSection
               card={card}
+              boardMembers={effectiveBoardMembers}
+              onToggleMember={handleToggleMember}
+              onInviteMember={onInviteMember}
+              canManageMembers={canManageMembers}
               title={title}
               setTitle={setTitle}
               onTitleBlur={handleTitleBlur}
@@ -134,9 +174,10 @@ const CardDetailsModal = ({
           </div>
 
           {/* Right Column: Comments & Activity stream with rich toolbar */}
-          <div className="md:col-span-5 border-t md:border-t-0 md:border-l border-[#2d323b] md:pl-6 pt-4 md:pt-0">
+          <div className="md:col-span-5 border-t md:border-t-0 md:border-l border-slate-200 dark:border-[#2d323b] md:pl-6 pt-4 md:pt-0">
             <CardCommentsSection
               card={card}
+              boardMembers={effectiveBoardMembers}
               currentUser={currentUser}
               onAddComment={onAddComment}
               onUpdateComment={onUpdateComment}

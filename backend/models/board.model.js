@@ -29,12 +29,7 @@ const boardSchema = new mongoose.Schema(
           label: { type: String, required: true, trim: true, maxlength: 40 },
         },
       ],
-      default: [
-        { id: 'do', label: 'Do' },
-        { id: 'doing', label: 'Doing' },
-        { id: 'to-be-done', label: 'To Be Done' },
-        { id: 'final', label: 'Final' },
-      ],
+      default: [],
     },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdBy: {

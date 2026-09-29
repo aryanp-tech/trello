@@ -42,21 +42,20 @@ const Register = () => {
   }
 
   return (
-    <div className='flex min-h-screen items-center justify-center bg-[#111214] px-4 py-10'>
-      <div className='w-full max-w-md rounded-2xl border border-[#34363a] bg-[#202225] p-8 shadow-2xl'>
+    <div className='flex min-h-screen items-center justify-center bg-white px-4 py-10'>
+      <div className='w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl'>
         <div className='mb-8 text-center'>
-         
-          <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-lg font-semibold text-white'>
+          <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-lg font-semibold text-white shadow-md shadow-blue-500/20'>
             trello
           </div>
-          <h1 className='text-2xl font-semibold tracking-tight text-white'>Create account</h1>
-          <p className='mt-2 text-sm text-white/55'>Sign up to get started</p>
+          <h1 className='text-2xl font-semibold tracking-tight text-slate-900'>Create account</h1>
+          <p className='mt-2 text-sm text-slate-500'>Sign up to get started</p>
         </div>
  
        {/* //registration form that collects username, email, and password from the user, with validation and error handling */}
         <form onSubmit={handleSubmit} className='space-y-5'>
           <div>
-            <label htmlFor='username' className='mb-2 block text-sm font-medium text-white/80'>Username</label>
+            <label htmlFor='username' className='mb-2 block text-sm font-medium text-slate-700'>Username</label>
             <input
               id='username'
               name='username'
@@ -64,13 +63,13 @@ const Register = () => {
               value={formData.username}
               onChange={handleChange}
               placeholder='Enter your username'
-              className='w-full rounded-xl border border-[#34363a] bg-[#0d0e10] px-3.5 py-2.5 text-white outline-none transition placeholder:text-white/35 focus:border-[#5798f5] focus:ring-2 focus:ring-[#5798f5]/30'
+              className='w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20'
               required
             />
           </div>
 
           <div>
-            <label htmlFor='email' className='mb-2 block text-sm font-medium text-white/80'>Email address</label>
+            <label htmlFor='email' className='mb-2 block text-sm font-medium text-slate-700'>Email address</label>
             <input
               id='email'
               name='email'
@@ -78,14 +77,14 @@ const Register = () => {
               value={formData.email}
               onChange={handleChange}
               placeholder='Enter your email'
-              className='w-full rounded-xl border border-[#34363a] bg-[#0d0e10] px-3.5 py-2.5 text-white outline-none transition placeholder:text-white/35 focus:border-[#5798f5] focus:ring-2 focus:ring-[#5798f5]/30'
+              className='w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20'
               required
             />
           </div>
 
           <div>
             <div className='mb-2 flex items-center justify-between gap-3'>
-              <label htmlFor='password' className='text-sm font-medium text-white/80'>Password</label>
+              <label htmlFor='password' className='text-sm font-medium text-slate-700'>Password</label>
               <button
                 type='button'
                 onClick={() => setShowPassword((prev) => !prev)}
@@ -102,12 +101,12 @@ const Register = () => {
               value={formData.password}
               onChange={handleChange}
               placeholder='Enter your password'
-              className='w-full rounded-xl border border-[#34363a] bg-[#0d0e10] px-3.5 py-2.5 text-white outline-none transition placeholder:text-white/35 focus:border-[#5798f5] focus:ring-2 focus:ring-[#5798f5]/30'
+              className='w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20'
               required
             />
           </div>
 
-          {error && <p className='text-sm text-red-300'>{error}</p>}
+          {error && <p className='text-sm text-red-600'>{error}</p>}
 
             {/* //sign up button with loading state */}
           <button
@@ -120,7 +119,7 @@ const Register = () => {
         </form>
 
         {/* // link to return to the login page if the user already has an account */}
-        <p className='mt-6 text-center text-sm text-white/55'>
+        <p className='mt-6 text-center text-sm text-slate-500'>
           Already have an account?{' '}
           <Link to='/login' className='font-semibold text-blue-600 transition hover:text-blue-700'>
             Go to login
