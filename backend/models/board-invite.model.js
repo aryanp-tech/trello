@@ -7,6 +7,11 @@ const boardInviteSchema = new mongoose.Schema(
       ref: 'Board',
       required: true,
     },
+    card: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Card',
+      default: null,
+    },
     invitedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

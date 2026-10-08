@@ -29,11 +29,7 @@ const boardSchema = new mongoose.Schema(
           label: { type: String, required: true, trim: true, maxlength: 40 },
         },
       ],
-      default: [
-        { id: 'todo', label: 'To Do' },
-        { id: 'doing', label: 'Doing' },
-        { id: 'done', label: 'Done' },
-      ],
+      default: [],
     },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdBy: {
@@ -48,5 +44,8 @@ const boardSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+boardSchema.index({ createdBy: 1 });
+boardSchema.index({ members: 1 });
 
 module.exports = mongoose.model('Board', boardSchema);

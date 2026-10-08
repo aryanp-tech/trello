@@ -1,0 +1,38 @@
+import { useNavigate } from "react-router-dom";
+
+const LeftSidebar = ({ boards, loading }) => {
+  const navigate = useNavigate();
+
+  // Sidebar component that displays a list of boards and allows navigation to each board
+  return (
+    <aside className="w-full shrink-0 border-b border-slate-200 bg-white px-5 py-6 transition-colors dark:border-[#292c31] dark:bg-[#111214] lg:min-h-[calc(100vh-64px)] lg:w-72 lg:border-b-0 lg:border-r">
+      <div>
+        {/* // Sidebar header with logo and title */}
+        <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-[#929298]">
+          Your boards
+        </p>
+        <div className="space-y-1">
+          {/* // Display each board in the sidebar */}
+          {boards.map((board) => (
+            <button
+              key={board._id}
+              type="button"
+              onClick={() => navigate(`/boards/${board._id}`)}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-[#c7c7cb] dark:hover:bg-[#303237]"
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded bg-[#ad4c9f] text-xs font-bold text-white">
+                {board.title.charAt(0).toUpperCase()}
+              </span>
+              <span className="truncate">{board.title}</span>
+            </button>
+          ))}
+          {!loading && boards.length === 0 && (
+            <p className="px-3 text-sm text-slate-400 dark:text-[#858589]">No boards yet</p>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+};
+
+export default LeftSidebar;

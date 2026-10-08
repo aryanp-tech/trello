@@ -1,20 +1,22 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
-import BoardWorkspace from './components/BoardWorkspace'
-import Profile from './pages/Profile'
-import BoardInvite from './pages/BoardInvite'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import Login from './pages/auth/login/Login'
+import Register from './pages/auth/register/Register'
+import Dashboard from './pages/dashboard/Dashboard'
+import BoardWorkspace from './components/board/BoardWorkspace'
+import Profile from './pages/profile/Profile'
+import BoardInvite from './pages/board-invite/BoardInvite'
+import ForgotPassword from './pages/auth/forgot-password/ForgotPassword'
+import ResetPassword from './pages/auth/reset-password/ResetPassword'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { useAuth } from './context/useAuth'
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth()
+  const location = useLocation()
 
   if (!user) {
-    return <Navigate to='/login' replace />
+    return <Navigate to='/login' state={{ from: location }} replace />
   }
 
   return children
@@ -22,8 +24,9 @@ const ProtectedRoute = ({ children }) => {
 
 const App = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
          
           {/* // Redirect root path to login page */}
@@ -70,6 +73,7 @@ const App = () => {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </ThemeProvider>
   )
 }
 
