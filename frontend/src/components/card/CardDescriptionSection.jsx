@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import CardMembersBar from "./CardMembersBar";
 import CardAttachmentsList from "./CardAttachmentsList";
 
 // Clean, modular card description section
-const CardDescriptionSection = ({
+const CardDescriptionSection = React.memo(({
   card,
   boardMembers = [],
   onToggleMember,
@@ -182,7 +182,7 @@ const CardDescriptionSection = ({
       </div>
     </div>
   );
-};
+});
 
 export default CardDescriptionSection;
 

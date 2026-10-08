@@ -1,26 +1,26 @@
+import { useMemo } from "react";
 import { getMergedColumnOptions } from "./cardUtils";
 
-// Normalize check for preset options
-const getPresetMatch = (val) => {
-  if (!val) return null;
-  const normalized = String(val).toLowerCase().replace(/-\d+$/, '').trim();
-  if (normalized === "do" || normalized === "todo") return "do";
-  if (normalized === "doing") return "doing";
-  if (normalized === "to-be-done" || normalized === "to be done") return "to-be-done";
-  if (normalized === "final" || normalized === "done") return "final";
-  return null;
-};
+// Reusable card status field with all board columns and custom manual input
+const CardListField = ({ list = "", columns = [], onListChange }) => {
+  const availableOptions = useMemo(() => {
+    if (columns && columns.length > 0) {
+      return columns;
+    }
+    return getMergedColumnOptions();
+  }, [columns]);
 
-// Reusable card status field with the 4 standard suggestions and custom manual input
-const CardListField = ({ list = "", onListChange }) => {
-  const suggestions = getMergedColumnOptions();
-  const selectedPreset = getPresetMatch(list);
+  // Determine if list matches an existing option
+  const matchedOption = availableOptions.find(
+    (opt) =>
+      opt.id === list ||
+      opt.label.toLowerCase() === String(list).toLowerCase()
+  );
 
-  // If a preset is active, keep custom input empty so the placeholder shows
-  // Only if the user entered a custom text does the input show that custom text
-  const customInputValue = selectedPreset ? "" : list;
+  // If matched an existing column option, leave manual input blank
+  const customInputValue = matchedOption ? "" : list;
 
-  const handlePresetClick = (optId) => {
+  const handleOptionClick = (optId) => {
     if (onListChange) {
       onListChange(optId);
     }
@@ -36,20 +36,24 @@ const CardListField = ({ list = "", onListChange }) => {
     <div className="mb-3">
       <div className="mb-1">
         <label className="text-xs font-semibold text-slate-700 dark:text-white/70">
-          List / Status
+          List / Status ({availableOptions.length} columns)
         </label>
       </div>
 
-      {/* 4 standard suggestions */}
-      <div className="mb-2 flex flex-wrap gap-1.5">
-        {suggestions.map((opt) => {
-          const isSelected = selectedPreset === opt.id;
+      {/* Board columns options */}
+      <div className="mb-2 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto column-scrollbar">
+        {availableOptions.map((opt) => {
+          const isSelected =
+            matchedOption?.id === opt.id ||
+            list === opt.id ||
+            String(list).toLowerCase() === opt.label.toLowerCase();
+
           return (
             <button
               key={opt.id}
               type="button"
-              onClick={() => handlePresetClick(opt.id)}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
+              onClick={() => handleOptionClick(opt.id)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                 isSelected
                   ? "bg-blue-600 text-white shadow-sm"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80 dark:border-transparent dark:bg-[#17181a] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
@@ -61,7 +65,7 @@ const CardListField = ({ list = "", onListChange }) => {
         })}
       </div>
 
-      {/* Manual write input with requested placeholder */}
+      {/* Manual write input for custom status */}
       <input
         value={customInputValue}
         onChange={handleCustomChange}

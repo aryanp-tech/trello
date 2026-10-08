@@ -273,7 +273,6 @@ const acceptBoardInvite = async (req, res) => {
     }
 };
 
-
 // Delete a board
 const deleteBoard = async (req, res) => {
     try {

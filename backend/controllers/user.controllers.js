@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -7,20 +8,22 @@ const BoardInvite = require('../models/board-invite.model');
 const PasswordReset = require('../models/password-reset.model');
 const { sendPasswordResetEmail } = require('../services/mail.service');
 
-// Generate access token
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || JWT_SECRET;
+
+// Token helpers
 const generateAccessToken = (user) => {
     return jwt.sign(
         { id: user._id, email: user.email },
-        process.env.JWT_SECRET,
+        JWT_SECRET,
         { expiresIn: '15m' }
     );
 };
 
-// Generate refresh token
 const generateRefreshToken = (user) => {
     return jwt.sign(
         { id: user._id },
-        process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+        JWT_REFRESH_SECRET,
         { expiresIn: '7d' }
     );
 };
@@ -56,44 +59,45 @@ const registerUser = async (req, res) => {
             }
         }
 
-        const existingUser = await User.findOne({ email: normalizedEmail });
+        const existingUser = await User.exists({ email: normalizedEmail });
         if (existingUser) {
             return res.status(409).json({ message: 'User already exists with this email' });
         }
 
+        const userId = new mongoose.Types.ObjectId();
         const hashedPassword = await bcrypt.hash(password, 10);
+        const accessToken = generateAccessToken({ _id: userId, email: normalizedEmail });
+        const refreshToken = generateRefreshToken({ _id: userId });
 
         const newUser = await User.create({
-            username,
+            _id: userId,
+            username: username.trim(),
             email: normalizedEmail,
             password: hashedPassword,
+            refreshToken,
         });
 
         if (invite) {
             const board = invite.board;
-            board.members = board.members || [];
-            if (!board.members.some((memberId) => memberId.equals(newUser._id))) {
-                board.members.push(newUser._id);
-                await board.save();
+            if (board) {
+                board.members = board.members || [];
+                if (!board.members.some((memberId) => memberId.equals(userId))) {
+                    board.members.push(userId);
+                    await board.save();
+                }
             }
 
             if (invite.card) {
                 await Card.findByIdAndUpdate(invite.card, {
-                    $addToSet: { members: newUser._id },
+                    $addToSet: { members: userId },
                 });
             }
 
-            invite.acceptedAt = new Date();
-            invite.revokedAt = new Date();
+            const now = new Date();
+            invite.acceptedAt = now;
+            invite.revokedAt = now;
             await invite.save();
         }
-
-        // Generate tokens
-        const accessToken = generateAccessToken(newUser);
-        const refreshToken = generateRefreshToken(newUser);
-
-        newUser.refreshToken = refreshToken;
-        await newUser.save();
 
         return res.status(201).json({
             message: 'User registered successfully',
@@ -136,8 +140,7 @@ const loginUser = async (req, res) => {
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
 
-        user.refreshToken = refreshToken;
-        await user.save();
+        await User.updateOne({ _id: user._id }, { refreshToken });
 
         return res.status(200).json({
             message: 'Login successful',
@@ -164,11 +167,8 @@ const refreshAccessToken = async (req, res) => {
             return res.status(401).json({ message: 'Refresh token is required' });
         }
 
-        const decoded = jwt.verify(
-            refreshToken,
-            process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET
-        );
-        const user = await User.findById(decoded.id);
+        const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+        const user = await User.findById(decoded.id).select('username email refreshToken').lean();
 
         if (!user || user.refreshToken !== refreshToken) {
             return res.status(401).json({ message: 'Invalid refresh token' });
@@ -176,8 +176,8 @@ const refreshAccessToken = async (req, res) => {
 
         const accessToken = generateAccessToken(user);
         const nextRefreshToken = generateRefreshToken(user);
-        user.refreshToken = nextRefreshToken;
-        await user.save();
+
+        await User.updateOne({ _id: user._id }, { refreshToken: nextRefreshToken });
 
         return res.status(200).json({
             accessToken,
@@ -202,11 +202,12 @@ const requestPasswordReset = async (req, res) => {
 
         if (!email) return res.status(200).json(genericResponse);
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).select('_id email').lean();
         if (!user) return res.status(200).json(genericResponse);
 
         const rawToken = crypto.randomBytes(32).toString('hex');
         const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
         await PasswordReset.deleteMany({ user: user._id, usedAt: null });
         await PasswordReset.create({
             user: user._id,
@@ -253,22 +254,23 @@ const resetPassword = async (req, res) => {
             tokenHash,
             usedAt: null,
             expiresAt: { $gt: new Date() },
-        });
+        }).lean();
 
         if (!resetRequest) {
             return res.status(400).json({ message: 'This password reset link is invalid or expired' });
         }
 
-        const user = await User.findById(resetRequest.user);
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = await User.findByIdAndUpdate(resetRequest.user, {
+            password: hashedPassword,
+            refreshToken: '',
+        });
         if (!user) return res.status(400).json({ message: 'This password reset link is invalid' });
 
-        user.password = await bcrypt.hash(password, 10);
-        user.refreshToken = '';
-        await user.save();
-
-        resetRequest.usedAt = new Date();
-        await resetRequest.save();
-        await PasswordReset.deleteMany({ user: user._id, _id: { $ne: resetRequest._id } });
+        await Promise.all([
+            PasswordReset.findByIdAndUpdate(resetRequest._id, { usedAt: new Date() }),
+            PasswordReset.deleteMany({ user: resetRequest.user, _id: { $ne: resetRequest._id } }),
+        ]);
 
         return res.status(200).json({ message: 'Password reset successfully' });
     } catch (error) {

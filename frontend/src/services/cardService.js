@@ -12,11 +12,9 @@ export const updateCard = (boardId, cardId, payload) => {
   return api.put(`/boards/${boardId}/cards/${cardId}`, payload)
 }
 
-// Reorder / move cards on a board (supports targeted single card move or bulk array)
-export const reorderCards = (boardId, payload) => {
-  const body = Array.isArray(payload) ? { cards: payload } : payload
-  return api.put(`/boards/${boardId}/cards/reorder`, body)
-}
+// Reorder / move a single card using targeted orderKey payload (O(1) payload)
+export const reorderCards = (boardId, payload) =>
+  api.put(`/boards/${boardId}/cards/reorder`, payload)
 
 // Delete a card by its ID
 export const deleteCard = (boardId, cardId) => api.delete(`/boards/${boardId}/cards/${cardId}`)
@@ -45,8 +43,7 @@ export const uploadCardAttachment = (boardId, cardId, file) => {
   return api.post(`/boards/${boardId}/cards/${cardId}/attachments`, formData)
 }
 
-//delete attachment in the comment
 export const deleteCardAttachment = (boardId, cardId, attachmentId) => {
-  return api.delete(`/boards/${boardId}/cards/${cardId}/attachments/${attachmentId}`)
+  return api.delete(`/boards/${boardId}/cards/${cardId}/attachments/${encodeURIComponent(attachmentId)}`)
 }
 

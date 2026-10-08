@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
   createBoardColumn,
@@ -36,11 +36,14 @@ export const useBoardWorkspace = () => {
   const [selectedCardId, setSelectedCardId] = useState(null)
 
   const activeCardId = urlCardId || selectedCardId
-  const selectedCard = cards.find((c) => String(c._id) === String(activeCardId)) || null
+  const selectedCard = useMemo(
+    () => cards.find((c) => String(c._id) === String(activeCardId)) || null,
+    [cards, activeCardId]
+  )
 
-  const setSelectedCard = (cardOrNull) => {
+  const setSelectedCard = useCallback((cardOrNull) => {
     setSelectedCardId(cardOrNull?._id || cardOrNull || null)
-  }
+  }, [])
 
   // Card Creation Modal State
   const [modalOpen, setModalOpen] = useState(false)
@@ -59,9 +62,7 @@ export const useBoardWorkspace = () => {
 
   // Persistence Refs & Debounce Timers
   const lastSavedCardsRef = useRef([])
-  const pendingCardMoveRef = useRef(null)
   const pendingColumnMoveRef = useRef(null)
-  const cardDebounceTimerRef = useRef(null)
   const columnDebounceTimerRef = useRef(null)
 
   // Load board and cards on mount or boardId change
@@ -88,58 +89,57 @@ export const useBoardWorkspace = () => {
 
     return () => {
       active = false
-      if (cardDebounceTimerRef.current) clearTimeout(cardDebounceTimerRef.current)
       if (columnDebounceTimerRef.current) clearTimeout(columnDebounceTimerRef.current)
     }
   }, [boardId])
 
-  const handleCloseCardModal = () => {
+  const handleCloseCardModal = useCallback(() => {
     setSelectedCardId(null)
     if (searchParams.has('cardId')) {
       const nextParams = new URLSearchParams(searchParams)
       nextParams.delete('cardId')
       setSearchParams(nextParams, { replace: true })
     }
-  }
+  }, [searchParams, setSearchParams])
 
   // Helper: Synchronize an updated card across cards list and selected card
-  const updateLocalCard = (updated) => {
+  const updateLocalCard = useCallback((updated) => {
     setCards((current) => {
       const next = current.map((c) => (c._id === updated._id ? updated : c))
       lastSavedCardsRef.current = next
       return next
     })
     return updated
-  }
+  }, [])
 
   // --- Card Form Actions ---
-  const openCreate = (initialList = '') => {
-    setSelectedCard(null)
+  const openCreate = useCallback((initialList = '') => {
+    setSelectedCardId(null)
     setTitle('')
     setDescription('')
     setList(initialList || columns[0]?.id || '')
     setFile(null)
     setModalOpen(true)
-  }
+  }, [columns])
 
-  const openCard = (card) => {
-    setSelectedCard(card)
+  const openCard = useCallback((card) => {
+    setSelectedCardId(card?._id || null)
     if (card?._id) {
       const nextParams = new URLSearchParams(searchParams)
       nextParams.set('cardId', card._id)
       setSearchParams(nextParams, { replace: true })
     }
-  }
+  }, [searchParams, setSearchParams])
 
-  const closeCardForm = () => {
+  const closeCardForm = useCallback(() => {
     setTitle('')
     setDescription('')
     setList('')
     setFile(null)
     setModalOpen(false)
-  }
+  }, [])
 
-  const handleCardSubmit = async (e) => {
+  const handleCardSubmit = useCallback(async (e) => {
     e.preventDefault()
     if (!title.trim()) return
 
@@ -167,33 +167,65 @@ export const useBoardWorkspace = () => {
     } finally {
       setSaving(false)
     }
-  }
+  }, [boardId, title, description, list, file, closeCardForm])
 
-  // --- Drag and Drop Position Sync (Debounced, Zero In-Memory Shifts) ---
-  const handleReorderCards = (movePayload, nextCards) => {
-    if (nextCards) setCards(nextCards)
+  // --- Drag and Drop Position Sync with Numeric OrderKey System ---
+  const handleReorderCards = useCallback(async (movePayload, nextCards) => {
     if (!movePayload?.cardId) return
 
-    pendingCardMoveRef.current = movePayload
+    // nextCards was already applied optimistically by useBoardDnd
+    if (nextCards) {
+      lastSavedCardsRef.current = nextCards
+    }
 
-    if (cardDebounceTimerRef.current) clearTimeout(cardDebounceTimerRef.current)
+    // 2. Send only the necessary card movement information to the backend
+    try {
+      const res = await reorderCards(boardId, {
+        cardId: movePayload.cardId,
+        sourceColumnId: movePayload.sourceColumnId,
+        targetColumnId: movePayload.targetColumnId,
+        previousCardId: movePayload.previousCardId ?? null,
+        nextCardId: movePayload.nextCardId ?? null,
+      })
 
-    cardDebounceTimerRef.current = setTimeout(async () => {
-      const payload = pendingCardMoveRef.current
-      pendingCardMoveRef.current = null
-      if (!payload) return
-
-      try {
-        await reorderCards(boardId, payload)
-        lastSavedCardsRef.current = nextCards || cards
-      } catch (err) {
-        if (lastSavedCardsRef.current) setCards(lastSavedCardsRef.current)
-        setError(err.response?.data?.message || 'Unable to save card order')
+      if (res.data?.card) {
+        // Update the card's server orderKey silently without forcing unnecessary layout re-renders
+        setCards((current) => {
+          const idx = current.findIndex((c) => c._id === res.data.card._id)
+          if (idx === -1) return current
+          const existing = current[idx]
+          if (
+            existing.orderKey === res.data.card.orderKey &&
+            (existing.columnId || existing.list) === res.data.card.columnId
+          ) {
+            return current
+          }
+          const next = [...current]
+          next[idx] = { ...existing, ...res.data.card }
+          lastSavedCardsRef.current = next
+          return next
+        })
       }
-    }, 400)
-  }
+    } catch (err) {
+      console.error('Reorder cards error:', err)
+      setError(err.response?.data?.message || 'Unable to save card order')
 
-  const handleReorderColumns = (columnMovePayload, nextColumns) => {
+      // 5. Reconcile frontend state with the server if API fails
+      try {
+        const freshRes = await getCards(boardId)
+        if (freshRes.data?.cards) {
+          setCards(freshRes.data.cards)
+          lastSavedCardsRef.current = freshRes.data.cards
+        } else if (lastSavedCardsRef.current) {
+          setCards(lastSavedCardsRef.current)
+        }
+      } catch {
+        if (lastSavedCardsRef.current) setCards(lastSavedCardsRef.current)
+      }
+    }
+  }, [boardId])
+
+  const handleReorderColumns = useCallback((columnMovePayload, nextColumns) => {
     const prevColumns = columns
     if (nextColumns) setColumns(nextColumns)
     if (!columnMovePayload?.columnId) return
@@ -218,10 +250,10 @@ export const useBoardWorkspace = () => {
         setError(err.response?.data?.message || 'Unable to update columns')
       }
     }, 400)
-  }
+  }, [boardId, columns])
 
   // --- Card Details, Attachments & Comments Actions ---
-  const handleDelete = async (cardIdToDelete) => {
+  const handleDelete = useCallback(async (cardIdToDelete) => {
     const targetId = cardIdToDelete || selectedCard?._id
     if (!targetId) return
 
@@ -238,9 +270,9 @@ export const useBoardWorkspace = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to delete card')
     }
-  }
+  }, [boardId, selectedCard, handleCloseCardModal])
 
-  const handleUpdateCardDetails = async (cardId, updates) => {
+  const handleUpdateCardDetails = useCallback(async (cardId, updates) => {
     try {
       const res = await updateCard(boardId, cardId, updates)
       if (res.data.board) {
@@ -252,9 +284,9 @@ export const useBoardWorkspace = () => {
       setError(err.response?.data?.message || 'Unable to update card')
       throw err
     }
-  }
+  }, [boardId, updateLocalCard])
 
-  const handleUploadAttachment = async (cardId, attachmentFile) => {
+  const handleUploadAttachment = useCallback(async (cardId, attachmentFile) => {
     try {
       const res = await uploadCardAttachment(boardId, cardId, attachmentFile)
       return updateLocalCard(res.data.card)
@@ -262,9 +294,9 @@ export const useBoardWorkspace = () => {
       setError(err.response?.data?.message || 'Unable to upload file')
       throw err
     }
-  }
+  }, [boardId, updateLocalCard])
 
-  const handleDeleteAttachment = async (cardId, attachmentId) => {
+  const handleDeleteAttachment = useCallback(async (cardId, attachmentId) => {
     try {
       const res = await deleteCardAttachment(boardId, cardId, attachmentId)
       return updateLocalCard(res.data.card)
@@ -272,9 +304,9 @@ export const useBoardWorkspace = () => {
       setError(err.response?.data?.message || 'Unable to delete attachment')
       throw err
     }
-  }
+  }, [boardId, updateLocalCard])
 
-  const handleAddCommentWithFile = async (cardId, text, commentFile) => {
+  const handleAddCommentWithFile = useCallback(async (cardId, text, commentFile) => {
     try {
       setCommentSaving(true)
       let payload = { text }
@@ -291,9 +323,9 @@ export const useBoardWorkspace = () => {
     } finally {
       setCommentSaving(false)
     }
-  }
+  }, [boardId, updateLocalCard])
 
-  const handleUpdateComment = async (cardId, commentId, nextText) => {
+  const handleUpdateComment = useCallback(async (cardId, commentId, nextText) => {
     try {
       const res = await updateCardComment(boardId, cardId, commentId, nextText)
       return updateLocalCard(res.data.card)
@@ -301,9 +333,9 @@ export const useBoardWorkspace = () => {
       setError(err.response?.data?.message || 'Unable to edit comment')
       throw err
     }
-  }
+  }, [boardId, updateLocalCard])
 
-  const handleDeleteComment = async (cardId, commentId) => {
+  const handleDeleteComment = useCallback(async (cardId, commentId) => {
     try {
       const res = await deleteCardComment(boardId, cardId, commentId)
       return updateLocalCard(res.data.card)
@@ -311,10 +343,10 @@ export const useBoardWorkspace = () => {
       setError(err.response?.data?.message || 'Unable to delete comment')
       throw err
     }
-  }
+  }, [boardId, updateLocalCard])
 
   // --- Column Management Actions ---
-  const saveColumns = async (nextColumns) => {
+  const saveColumns = useCallback(async (nextColumns) => {
     const prevColumns = columns
     setColumns(nextColumns)
     try {
@@ -325,9 +357,9 @@ export const useBoardWorkspace = () => {
       setColumns(prevColumns)
       setError(err.response?.data?.message || 'Unable to update columns')
     }
-  }
+  }, [boardId, columns])
 
-  const handleAddColumn = async (e) => {
+  const handleAddColumn = useCallback(async (e) => {
     e.preventDefault()
     const label = columnName.trim()
     if (!label) return
@@ -343,56 +375,55 @@ export const useBoardWorkspace = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to add column')
     }
-  }
+  }, [boardId, columnName])
 
-  const handleRenameColumn = async (column) => {
+  const handleRenameColumn = useCallback(async (column) => {
     const label = window.prompt('Column name', column.label)?.trim()
     if (!label || label === column.label) return
     await saveColumns(columns.map((col) => (col.id === column.id ? { ...col, label } : col)))
-  }
+  }, [columns, saveColumns])
 
-  const handleDeleteColumn = async (column) => {
+  const handleDeleteColumn = useCallback(async (column) => {
     try {
       const res = await deleteBoardColumn(boardId, column.id)
       setColumns(res.data.board.columns)
       setBoard(res.data.board)
-      setCards((current) => {
-        const next = current.filter((c) => c.list !== column.id)
-        lastSavedCardsRef.current = next
-        return next
-      })
+      setCards((current) => current.filter((c) => (c.columnId || c.list) !== column.id))
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to delete column')
     }
-  }
+  }, [boardId])
 
-  const handleInviteMember = async (email, cardId = null) => {
-    if (!email?.trim()) return null
+  // --- Member Management Actions ---
+  const handleInviteMember = useCallback(async (email) => {
     try {
-      const res = await inviteBoardMember(boardId, email.trim(), cardId)
-      if (res.data.member) {
-        setBoard((prev) => {
-          if (!prev) return prev
-          const exists = (prev.members || []).some((m) => String(m._id || m) === String(res.data.member._id))
-          return exists ? prev : { ...prev, members: [...(prev.members || []), res.data.member] }
-        })
-        if (cardId && res.data.card) {
-          setCards((prev) => prev.map((c) => (c._id === cardId ? res.data.card : c)))
+      const res = await inviteBoardMember(boardId, email)
+      if (res.data.inviteUrl) {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(res.data.inviteUrl)
+          setNotification({
+            type: 'success',
+            message: 'Invite link copied to clipboard! Share it with your teammate.',
+          })
+        } else {
+          window.prompt('Copy this invite link:', res.data.inviteUrl)
         }
+      } else {
+        setNotification({
+          type: 'success',
+          message: res.data.message || 'Invitation sent successfully.',
+        })
       }
-      setNotification({ type: 'success', message: res.data.message || 'Invitation sent successfully.' })
-      return res.data
     } catch (err) {
-      const msg = err.response?.data?.message || 'Unable to send invitation.'
+      const msg = err.response?.data?.message || 'Failed to send invitation.'
       setNotification({ type: 'error', message: msg })
       throw err
     }
-  }
+  }, [boardId])
 
-  const handleAddMember = async (e) => {
+  const handleAddMember = useCallback(async (e) => {
     e.preventDefault()
     if (!memberEmail.trim()) return
-
     try {
       await handleInviteMember(memberEmail.trim())
       setMemberEmail('')
@@ -400,9 +431,9 @@ export const useBoardWorkspace = () => {
     } catch {
       // Error notification handled in handleInviteMember
     }
-  }
+  }, [memberEmail, handleInviteMember])
 
-  const handleRemoveMember = async (memberId) => {
+  const handleRemoveMember = useCallback(async (memberId) => {
     try {
       const res = await removeBoardMember(boardId, memberId)
       if (res.data.board) {
@@ -428,7 +459,7 @@ export const useBoardWorkspace = () => {
       setNotification({ type: 'error', message: msg })
       throw err
     }
-  }
+  }, [boardId])
 
   return {
     boardId,

@@ -1,14 +1,16 @@
+import React, { useMemo } from "react";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import {
   SortableContext,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useBoardPan } from "../hooks/useBoardPan";
-import { useBoardDnd } from "../hooks/useBoardDnd";
+import { useBoardPan } from "../../hooks/useBoardPan";
+import { useBoardDnd } from "../../hooks/useBoardDnd";
 import BoardColumn from "./BoardColumn";
-import { CardOverlay, ColumnOverlay } from "./board/BoardOverlays";
+import { CardOverlay, ColumnOverlay } from "./BoardOverlays";
 
-const BoardCanvas = ({
+
+const BoardCanvas = React.memo(({
   columns = [],
   cards = [],
   setCards,
@@ -45,6 +47,23 @@ const BoardCanvas = ({
     onReorderColumns,
   });
 
+  // Group cards by column in a single O(N) pass for optimal rendering performance
+  const columnCardsMap = useMemo(() => {
+    const map = {};
+    columns.forEach((col) => {
+      map[col.id] = [];
+    });
+    cards.forEach((card) => {
+      const colId = card.columnId || card.list;
+      if (map[colId]) {
+        map[colId].push(card);
+      } else {
+        map[colId] = [card];
+      }
+    });
+    return map;
+  }, [columns, cards]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -70,7 +89,7 @@ const BoardCanvas = ({
             <BoardColumn
               key={column.id}
               column={column}
-              cards={cards.filter((card) => card.list === column.id)}
+              cards={columnCardsMap[column.id] || []}
               onCardOpen={onCardOpen}
               onRename={onRename}
               onDelete={onDeleteColumn}
@@ -88,8 +107,8 @@ const BoardCanvas = ({
         </button>
       </div>
 
-      {/* Visual drag overlay preview */}
-      <DragOverlay>
+      {/* Visual drag overlay preview with instantaneous zero-lag drop physics */}
+      <DragOverlay dropAnimation={null}>
         {activeItem?.type === "Card" && (
           <CardOverlay card={activeItem.card} />
         )}
@@ -97,12 +116,12 @@ const BoardCanvas = ({
         {activeItem?.type === "Column" && (
           <ColumnOverlay
             column={activeItem.column}
-            cards={cards.filter((c) => c.list === activeItem.column.id)}
+            cards={columnCardsMap[activeItem.column.id] || []}
           />
         )}
       </DragOverlay>
     </DndContext>
   );
-};
+});
 
 export default BoardCanvas;

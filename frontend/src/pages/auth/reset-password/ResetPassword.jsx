@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { resetPassword } from "../services/authService";
-import ThemeToggle from "../components/ThemeToggle";
+import { resetPassword } from "../../../services/authService";
+import ThemeToggle from "../../../components/common/ThemeToggle";
 
 const ResetPassword = () => {
   // reset password page that allows users to set a new password using a token from the reset email

@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import CardListField from "./card/CardListField";
+import CardListField from "./CardListField";
 
 const CardFormModal = ({
   title,
   description,
   list = "",
+  columns = [],
   saving,
   onTitleChange,
   onDescriptionChange,
@@ -45,6 +46,7 @@ const CardFormModal = ({
         {/* List / Status Field */}
         <CardListField
           list={list}
+          columns={columns}
           onListChange={onListChange}
         />
 

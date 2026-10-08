@@ -1,3 +1,4 @@
+import React from "react";
 import { formatTimestamp } from "./cardUtils";
 import CommentAttachment from "./CommentAttachment";
 
@@ -19,7 +20,7 @@ const renderCommentContent = (text) => {
   });
 };
 
-const CommentItem = ({
+const CommentItem = React.memo(({
   cmt,
   currentUser,
   isEditingThis,
@@ -141,6 +142,6 @@ const CommentItem = ({
       </div>
     </div>
   );
-};
+});
 
 export default CommentItem;

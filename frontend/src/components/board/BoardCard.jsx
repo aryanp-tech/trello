@@ -1,3 +1,5 @@
+import defaultBoardBg from "../../assets/Board_workspace_BG.png";
+
 const BoardCard = ({
   board,
   menuOpen,
@@ -7,9 +9,7 @@ const BoardCard = ({
   onDelete,
 }) => {
   const style = {
-    backgroundImage: board.backgroundImage
-      ? `url(${board.backgroundImage})`
-      : "linear-gradient(135deg, #20252b 0%, #334155 52%, #1f766d 100%)",
+    backgroundImage: `url(${board.backgroundImage || defaultBoardBg})`,
   };
 
   return (

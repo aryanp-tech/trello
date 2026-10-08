@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { acceptBoardInvite } from '../services/inviteService'
-import { useAuth } from '../context/useAuth'
-import ThemeToggle from '../components/ThemeToggle'
+import { acceptBoardInvite } from '../../services/inviteService'
+import { useAuth } from '../../context/useAuth'
+import ThemeToggle from '../../components/common/ThemeToggle'
 
 const BoardInvite = () => {
   const { token } = useParams()

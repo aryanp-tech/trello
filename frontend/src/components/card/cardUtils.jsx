@@ -78,18 +78,16 @@ export const getCardDetailsSummary = (card) => {
     };
   }
 
-  const allAttachments = [];
-  if (card.attachments && Array.isArray(card.attachments)) {
-    allAttachments.push(...card.attachments);
-  }
-  if (card.attachment?.url && !allAttachments.some((a) => a.url === card.attachment.url)) {
-    allAttachments.unshift(card.attachment);
-  }
+  const allAttachments = Array.isArray(card.attachments)
+    ? card.attachments
+    : card.attachment?.url
+    ? [card.attachment]
+    : [];
 
   const imageAttachment = allAttachments.find(
     (att) =>
       att?.mimeType?.startsWith("image/") ||
-      /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(
+      /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|avif)$/i.test(
         att?.fileName || att?.originalName || att?.url || ""
       )
   );
@@ -134,3 +132,49 @@ export const getAvatarColor = (name = "") => {
   }
   return colors[Math.abs(hash) % colors.length];
 };
+
+// Safely resolve attachment URLs (handles relative paths, localhost differences, etc.)
+export const getFullAttachmentUrl = (url = "") => {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("blob:") ||
+    trimmed.startsWith("data:")
+  ) {
+    return trimmed;
+  }
+  const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const host = typeof window !== "undefined" && window.location ? window.location.hostname : "localhost";
+  return `http://${host}:5000${cleanPath}`;
+};
+
+// Safe in-place download via blob to avoid cross-origin navigation
+export const downloadFileBlob = async (rawUrl, fallbackName = "download") => {
+  const url = getFullAttachmentUrl(rawUrl);
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = fallbackName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    console.warn("Direct blob download failed, falling back:", err.message);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fallbackName;
+    a.target = "_self";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+};
+
+

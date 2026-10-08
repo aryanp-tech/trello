@@ -1,6 +1,7 @@
+import React from "react";
 import { getAvatarColor, getInitials } from "../card/cardUtils";
 
-const CardBadges = ({ commentsCount = 0, attachmentsCount = 0, members = [] }) => {
+const CardBadges = React.memo(({ commentsCount = 0, attachmentsCount = 0, members = [] }) => {
   const hasBadges = commentsCount > 0 || attachmentsCount > 0;
   const hasMembers = members.length > 0;
 
@@ -89,6 +90,6 @@ const CardBadges = ({ commentsCount = 0, attachmentsCount = 0, members = [] }) =
       )}
     </div>
   );
-};
+});
 
 export default CardBadges;

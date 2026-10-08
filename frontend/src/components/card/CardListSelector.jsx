@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { getMergedColumnOptions, formatStatusLabel } from "./cardUtils";
 
-// Component for card status selection with 4 fixed suggestions and custom manual input
-const CardListSelector = ({ currentColumn, onSelectColumn }) => {
+// Component for card status selection with all board columns and custom manual input
+const CardListSelector = ({ currentColumn, columns = [], onSelectColumn }) => {
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [manualInput, setManualInput] = useState("");
   const menuRef = useRef(null);
@@ -17,8 +17,13 @@ const CardListSelector = ({ currentColumn, onSelectColumn }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [columnMenuOpen]);
 
-  // Only the exact 4 standard suggestions - no other columns
-  const suggestions = getMergedColumnOptions();
+  // Display all columns from the current board (with fallback to default options if none exist)
+  const availableColumns = useMemo(() => {
+    if (columns && columns.length > 0) {
+      return columns;
+    }
+    return getMergedColumnOptions();
+  }, [columns]);
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
@@ -30,10 +35,10 @@ const CardListSelector = ({ currentColumn, onSelectColumn }) => {
 
   const isCurrentColumn = (col) => {
     if (!currentColumn) return false;
-    const currentFormatted = formatStatusLabel(currentColumn.label || currentColumn.id);
     return (
       col.id === currentColumn.id ||
-      col.label.toLowerCase() === currentFormatted.toLowerCase()
+      col.label?.toLowerCase() === currentColumn.label?.toLowerCase() ||
+      col.label?.toLowerCase() === currentColumn.id?.toLowerCase()
     );
   };
 
@@ -46,6 +51,7 @@ const CardListSelector = ({ currentColumn, onSelectColumn }) => {
         type="button"
         onClick={() => setColumnMenuOpen(!columnMenuOpen)}
         className="flex items-center gap-1.5 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 dark:border-transparent dark:bg-[#2b313a] dark:text-[#c7d1db] dark:hover:bg-[#343b46] dark:hover:text-white transition"
+        title="Change list / status"
       >
         <span>{displayLabel}</span>
         <svg
@@ -65,7 +71,7 @@ const CardListSelector = ({ currentColumn, onSelectColumn }) => {
 
       {columnMenuOpen && (
         <div className="absolute left-0 top-9 z-50 w-64 rounded-lg border border-slate-200 bg-white p-2.5 shadow-xl dark:border-[#3b424e] dark:bg-[#22272e] animate-in fade-in zoom-in-95 duration-100">
-          {/* Manual input: user can write whatever they want */}
+          {/* Manual input: create/move to custom status */}
           <div className="mb-2.5">
             <form onSubmit={handleManualSubmit} className="flex gap-1.5">
               <input
@@ -86,13 +92,13 @@ const CardListSelector = ({ currentColumn, onSelectColumn }) => {
             </form>
           </div>
 
-          {/* Exact 4 suggestions only */}
+          {/* List all board columns */}
           <div className="border-t border-slate-100 dark:border-[#373d47] pt-2">
             <div className="px-1 py-1 text-[11px] font-semibold text-slate-400 dark:text-white/50 uppercase tracking-wider">
-              Suggestions (4 options)
+              All Columns ({availableColumns.length})
             </div>
-            <div className="space-y-0.5 mt-1">
-              {suggestions.map((col) => {
+            <div className="space-y-0.5 mt-1 max-h-60 overflow-y-auto column-scrollbar">
+              {availableColumns.map((col) => {
                 const active = isCurrentColumn(col);
                 return (
                   <button
@@ -102,14 +108,14 @@ const CardListSelector = ({ currentColumn, onSelectColumn }) => {
                       setColumnMenuOpen(false);
                       onSelectColumn(col.id || col.label);
                     }}
-                    className={`flex w-full items-center justify-between rounded px-2.5 py-1.5 text-left text-xs transition ${
+                    className={`flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-xs transition ${
                       active
                         ? "bg-blue-50 text-blue-700 dark:bg-blue-600/30 dark:text-blue-300 font-semibold"
                         : "text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-[#c7d1db] dark:hover:bg-white/10 dark:hover:text-white"
                     }`}
                   >
-                    <span>{col.label}</span>
-                    {active && <span className="text-blue-600 dark:text-blue-400">✓</span>}
+                    <span className="truncate">{col.label}</span>
+                    {active && <span className="text-blue-600 dark:text-blue-400 font-bold ml-2">✓</span>}
                   </button>
                 );
               })}

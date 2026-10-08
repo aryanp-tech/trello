@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/useAuth";
+import { useAuth } from "../../context/useAuth";
 import ThemeToggle from "./ThemeToggle";
 
 const Navbar = ({ searchQuery, onSearchChange }) => {

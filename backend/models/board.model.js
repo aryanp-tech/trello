@@ -45,4 +45,7 @@ const boardSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+boardSchema.index({ createdBy: 1 });
+boardSchema.index({ members: 1 });
+
 module.exports = mongoose.model('Board', boardSchema);

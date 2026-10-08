@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { useDashboardBoards } from "../hooks/useDashboardBoards";
-import LeftSidebar from "./LeftSidebar";
-import BoardCard from "./BoardCard";
-import BoardFormModal from "./BoardFormModal";
+import { useDashboardBoards } from "../../hooks/useDashboardBoards";
+import LeftSidebar from "../common/LeftSidebar";
+import BoardCard from "../board/BoardCard";
+import BoardFormModal from "../board/BoardFormModal";
 
 const DashboardHome = ({ searchQuery = "" }) => {
   const navigate = useNavigate();

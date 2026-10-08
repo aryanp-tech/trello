@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { registerUser } from '../services/authService'
-import { useAuth } from '../context/useAuth'
+import { registerUser } from '../../../services/authService'
+import { useAuth } from '../../../context/useAuth'
 
 const Register = () => {
 

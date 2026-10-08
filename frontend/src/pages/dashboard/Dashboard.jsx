@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import Navbar from '../components/Navbar'
-import DashboardHome from '../components/DashboardHome'
+import Navbar from '../../components/common/Navbar'
+import DashboardHome from '../../components/dashboard/DashboardHome'
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('')

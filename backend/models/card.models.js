@@ -29,16 +29,21 @@ const cardSchema = new mongoose.Schema(
             type: String,
             default: 'todo',
         },
+        columnId: {
+            type: String,
+            default: function () {
+                return this.list || 'todo';
+            },
+            index: true,
+        },
+        orderKey: {
+            type: Number,
+            required: true,
+            default: 1000,
+        },
         position: {
             type: Number,
             default: 0,
-        },
-        attachment: {
-            originalName: { type: String, default: '' },
-            fileName: { type: String, default: '' },
-            mimeType: { type: String, default: '' },
-            size: { type: Number, default: 0 },
-            url: { type: String, default: '' },
         },
         attachments: {
             type: [
@@ -92,6 +97,9 @@ const cardSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-cardSchema.index({ board: 1, list: 1, position: 1 });
+// Compound unique index preventing duplicate orderKeys within the same column
+cardSchema.index({ columnId: 1, orderKey: 1 }, { unique: true });
+cardSchema.index({ board: 1, columnId: 1, orderKey: 1 });
+cardSchema.index({ board: 1, orderKey: 1 });
 
 module.exports = mongoose.model('Card', cardSchema);

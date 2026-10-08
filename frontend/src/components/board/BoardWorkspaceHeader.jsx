@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import BoardMembersBar from "./board/BoardMembersBar";
-import ThemeToggle from "./ThemeToggle";
+import React, { useState, useRef, useEffect } from "react";
+import BoardMembersBar from "./BoardMembersBar";
+import ThemeToggle from "../common/ThemeToggle";
 
-const BoardWorkspaceHeader = ({
+const BoardWorkspaceHeader = React.memo(({
   board,
   user,
   onBack,
@@ -109,6 +109,6 @@ const BoardWorkspaceHeader = ({
       </div>
     </div>
   );
-};
+});
 
 export default BoardWorkspaceHeader;

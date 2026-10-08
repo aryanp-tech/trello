@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/useAuth'
-import ThemeToggle from '../components/ThemeToggle'
+import { useAuth } from '../../context/useAuth'
+import ThemeToggle from '../../components/common/ThemeToggle'
 
 const Profile = () => {
   const navigate = useNavigate()

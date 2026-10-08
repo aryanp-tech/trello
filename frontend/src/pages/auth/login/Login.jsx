@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { loginUser } from '../services/authService'
-import { useAuth } from '../context/useAuth'
+import { loginUser } from '../../../services/authService'
+import { useAuth } from '../../../context/useAuth'
 
 const Login = () => {
   // login page that allows users to sign in with their email and password, and handles redirection based on invite tokens or dashboard access

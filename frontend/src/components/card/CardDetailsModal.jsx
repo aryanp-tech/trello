@@ -1,7 +1,7 @@
-import { useState } from "react";
-import CardModalHeader from "./card/CardModalHeader";
-import CardDescriptionSection from "./card/CardDescriptionSection";
-import CardCommentsSection from "./card/CardCommentsSection";
+import { useState, useMemo } from "react";
+import CardModalHeader from "./CardModalHeader";
+import CardDescriptionSection from "./CardDescriptionSection";
+import CardCommentsSection from "./CardCommentsSection";
 
 const CardDetailsModal = ({
   card,
@@ -24,18 +24,20 @@ const CardDetailsModal = ({
   const [savingDesc, setSavingDesc] = useState(false);
 
   // Compute unique board members from board object
-  const allBoardMembers = [];
-  if (board?.createdBy) allBoardMembers.push(board.createdBy);
-  if (Array.isArray(board?.members)) allBoardMembers.push(...board.members);
+  const effectiveBoardMembers = useMemo(() => {
+    const allBoardMembers = [];
+    if (board?.createdBy) allBoardMembers.push(board.createdBy);
+    if (Array.isArray(board?.members)) allBoardMembers.push(...board.members);
 
-  const memberMap = new Map();
-  for (const m of allBoardMembers) {
-    const id = m?._id ? String(m._id) : String(m);
-    if (id && !memberMap.has(id)) {
-      memberMap.set(id, typeof m === "object" ? m : { _id: id, username: id });
+    const memberMap = new Map();
+    for (const m of allBoardMembers) {
+      const id = m?._id ? String(m._id) : String(m);
+      if (id && !memberMap.has(id)) {
+        memberMap.set(id, typeof m === "object" ? m : { _id: id, username: id });
+      }
     }
-  }
-  const effectiveBoardMembers = Array.from(memberMap.values());
+    return Array.from(memberMap.values());
+  }, [board?.createdBy, board?.members]);
 
   const cardOwnerId = String(card.createdBy?._id || card.createdBy || "");
   const boardOwnerId = String(board?.createdBy?._id || board?.createdBy || "");
@@ -124,13 +126,15 @@ const CardDetailsModal = ({
     }
   };
 
-  // Collect all card attachments
-  const allAttachments = [];
-  if (card.attachments && Array.isArray(card.attachments) && card.attachments.length > 0) {
-    allAttachments.push(...card.attachments);
-  } else if (card.attachment?.url) {
-    allAttachments.push(card.attachment);
-  }
+  // Collect all valid card attachments without duplicates (memoized)
+  const allAttachments = useMemo(() => {
+    if (!card) return [];
+    return Array.isArray(card.attachments)
+      ? card.attachments
+      : card.attachment?.url
+      ? [card.attachment]
+      : [];
+  }, [card?.attachments, card?.attachment]);
 
   return (
     <div
@@ -144,6 +148,7 @@ const CardDetailsModal = ({
         {/* Top bar header */}
         <CardModalHeader
           currentColumn={currentColumn}
+          columns={columns}
           onSelectColumn={handleSelectColumn}
           onDeleteCard={handleDeleteCard}
           onClose={onClose}

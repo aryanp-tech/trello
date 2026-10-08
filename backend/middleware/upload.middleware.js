@@ -28,7 +28,7 @@ const uploadCardFile = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 25 * 1024 * 1024, // 25 MB
+    fileSize: 100 * 1024 * 1024, // 100 MB (supports videos like MP4)
   },
 });
 

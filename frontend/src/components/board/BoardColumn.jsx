@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import SortableCardItem from "./board/SortableCardItem";
+import SortableCardItem from "./SortableCardItem";
 
-const BoardColumn = ({
+const BoardColumn = React.memo(({
   column,
   cards = [],
   onCardOpen,
@@ -72,19 +72,19 @@ const BoardColumn = ({
     }
   };
 
-  const cardIds = cards.map((card) => card._id);
+  const cardIds = useMemo(() => cards.map((card) => card._id), [cards]);
 
   return (
     <section
       ref={setNodeRef}
       style={style}
-      className="w-72 shrink-0 self-start flex flex-col max-h-[calc(100vh-130px)] rounded-xl border border-slate-200/90 bg-[#ebecf0] dark:border-[#33353a] dark:bg-[#101214] p-2 transition-shadow shadow-sm"
+      className="w-72 shrink-0 self-start flex flex-col max-h-[calc(100vh-130px)] rounded-xl border border-slate-200/90 bg-[#ebecf0] dark:border-[#33353a] dark:bg-[#101214] p-2 shadow-sm"
     >
       {/* Column Header with drag handle */}
       <div
         {...attributes}
         {...listeners}
-        className="shrink-0 flex cursor-grab items-center justify-between gap-2 rounded-md px-3 py-2 active:cursor-grabbing select-none hover:bg-black/5 dark:hover:bg-white/5 transition"
+        className="shrink-0 flex cursor-grab items-center justify-between gap-2 rounded-md px-3 py-2 active:cursor-grabbing select-none hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
       >
         <button
           type="button"
@@ -137,7 +137,7 @@ const BoardColumn = ({
       >
         <div
           ref={setDroppableNodeRef}
-          className={`column-scrollbar flex-1 min-h-[48px] overflow-y-auto overflow-x-hidden space-y-2 py-1 pr-1 rounded-lg transition-colors duration-150 ${
+          className={`column-scrollbar flex-1 min-h-[48px] overflow-y-auto overflow-x-hidden space-y-2 py-1 pr-1 rounded-lg transition-colors ${
             isOver ? "bg-black/5 dark:bg-white/5" : ""
           }`}
         >
@@ -155,12 +155,12 @@ const BoardColumn = ({
       <button
         type="button"
         onClick={() => onCreateCard(column.id)}
-        className="shrink-0 mt-1 flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-300/60 hover:text-slate-900 dark:text-[#9fadbc] dark:hover:bg-white/10 dark:hover:text-[#dcdfe4] transition text-left"
+        className="shrink-0 mt-1 flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-300/60 hover:text-slate-900 dark:text-[#9fadbc] dark:hover:bg-white/10 dark:hover:text-[#dcdfe4] transition-colors text-left"
       >
         <span className="text-base leading-none">＋</span> Add a card
       </button>
     </section>
   );
-};
+});
 
 export default BoardColumn;

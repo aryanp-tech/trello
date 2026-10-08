@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { formatFileSize } from "./cardUtils";
 import CommentItem from "./CommentItem";
 import CardMentionDropdown from "./CardMentionDropdown";
 import CardActivityStream from "./CardActivityStream";
 
 // Component for card comments, composer, mention autocomplete, and activity stream
-const CardCommentsSection = ({
+const CardCommentsSection = React.memo(({
   card,
   boardMembers = [],
   currentUser,
@@ -50,41 +50,46 @@ const CardCommentsSection = ({
   const comments = card.comments || [];
 
   // Resolve members assigned to this specific card (ensuring card owner is always included)
-  const memberList = [...(card.members || [])];
-  const ownerObj = card.createdBy;
-  const ownerId = String(ownerObj?._id || ownerObj || "");
+  const memberList = useMemo(() => {
+    const list = [...(card.members || [])];
+    const ownerObj = card.createdBy;
+    const ownerId = String(ownerObj?._id || ownerObj || "");
 
-  if (ownerId && !memberList.some((m) => String(m?._id || m) === ownerId)) {
-    memberList.unshift(ownerObj);
-  }
+    if (ownerId && !list.some((m) => String(m?._id || m) === ownerId)) {
+      list.unshift(ownerObj);
+    }
+    return list;
+  }, [card.members, card.createdBy]);
 
   const currentUserId = String(currentUser?._id || currentUser?.id || "");
   const currentUsername = (currentUser?.username || "").toLowerCase();
 
-  const cardMembers = memberList
-    .map((m) => {
-      if (typeof m === "object" && m !== null) {
-        return m;
-      }
-      const found = (boardMembers || []).find((b) => String(b._id) === String(m));
-      return found || { _id: m, username: "Member" };
-    })
-    .filter((m) => {
-      // Exclude logged-in user so they don't see themselves in the @ mention list
-      const memberId = String(m._id || "");
-      const memberUsername = (m.username || "").toLowerCase();
-      if (currentUserId && memberId === currentUserId) return false;
-      if (currentUsername && memberUsername === currentUsername) return false;
-      return true;
-    });
+  const cardMembers = useMemo(() => {
+    return memberList
+      .map((m) => {
+        if (typeof m === "object" && m !== null) {
+          return m;
+        }
+        const found = (boardMembers || []).find((b) => String(b._id) === String(m));
+        return found || { _id: m, username: "Member" };
+      })
+      .filter((m) => {
+        // Exclude logged-in user so they don't see themselves in the @ mention list
+        const memberId = String(m._id || "");
+        const memberUsername = (m.username || "").toLowerCase();
+        if (currentUserId && memberId === currentUserId) return false;
+        if (currentUsername && memberUsername === currentUsername) return false;
+        return true;
+      });
+  }, [memberList, boardMembers, currentUserId, currentUsername]);
 
-  const filteredMembers =
-    mentionQuery !== null
-      ? cardMembers.filter((m) => {
-          const name = (m.username || m.email || "").toLowerCase();
-          return name.includes(mentionQuery);
-        })
-      : [];
+  const filteredMembers = useMemo(() => {
+    if (mentionQuery === null) return [];
+    return cardMembers.filter((m) => {
+      const name = (m.username || m.email || "").toLowerCase();
+      return name.includes(mentionQuery);
+    });
+  }, [mentionQuery, cardMembers]);
 
   const handleCommentChange = (e) => {
     const val = e.target.value;
@@ -308,6 +313,6 @@ const CardCommentsSection = ({
       </div>
     </div>
   );
-};
+});
 
 export default CardCommentsSection;

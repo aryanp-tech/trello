@@ -1,14 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/useAuth";
-import { useTheme } from "../context/useTheme";
-import { useBoardWorkspace } from "../hooks/useBoardWorkspace";
+import { useAuth } from "../../context/useAuth";
+import { useTheme } from "../../context/useTheme";
+import { useBoardWorkspace } from "../../hooks/useBoardWorkspace";
 import BoardCanvas from "./BoardCanvas";
 import BoardWorkspaceHeader from "./BoardWorkspaceHeader";
-import CardFormModal from "./CardFormModal";
-import CardDetailsModal from "./CardDetailsModal";
+import CardFormModal from "../card/CardFormModal";
+import CardDetailsModal from "../card/CardDetailsModal";
 import AddColumnModal from "./AddColumnModal";
 import AddMemberModal from "./AddMemberModal";
-import NotificationToast from "./NotificationToast";
+import NotificationToast from "../common/NotificationToast";
+import boardWorkspaceBg from "../../assets/Board_workspace_BG.png";
 
 const BoardWorkspace = () => {
   const navigate = useNavigate();
@@ -30,15 +31,13 @@ const BoardWorkspace = () => {
     );
 
     // The main workspace for a specific board, handling board data, modals, and notifications
+  const bgImage = workspace.board.backgroundImage || boardWorkspaceBg;
+
   return (
     <main
-      className="h-screen flex flex-col overflow-hidden bg-[#f5f7fb] bg-cover bg-center px-4 pb-0 pt-4 text-slate-800 dark:bg-[#111214] dark:text-white transition-colors"
+      className="h-screen flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat px-4 pb-0 pt-4 text-slate-800 dark:text-white transition-colors"
       style={{
-        backgroundImage: workspace.board.backgroundImage
-          ? isDark
-            ? `linear-gradient(rgba(17,18,20,.78), rgba(17,18,20,.9)), url(${workspace.board.backgroundImage})`
-            : `linear-gradient(rgba(245,247,251,.82), rgba(245,247,251,.92)), url(${workspace.board.backgroundImage})`
-          : undefined,
+        backgroundImage: `url(${bgImage})`,
       }}
     >
         {/* // Notification toast for displaying success or error messages related to board actions */}
@@ -84,6 +83,7 @@ const BoardWorkspace = () => {
           title={workspace.title}
           description={workspace.description}
           list={workspace.list}
+          columns={workspace.columns}
           saving={workspace.saving}
           onTitleChange={workspace.setTitle}
           onDescriptionChange={workspace.setDescription}

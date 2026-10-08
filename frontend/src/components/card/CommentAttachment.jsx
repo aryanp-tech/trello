@@ -89,6 +89,7 @@ const CommentAttachment = ({ attachment }) => {
 
       {previewOpen && (
         <AttachmentPreviewModal
+          key={attachment?.url}
           attachment={attachment}
           onClose={() => setPreviewOpen(false)}
         />

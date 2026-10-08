@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { requestPasswordReset } from '../services/authService'
-import ThemeToggle from '../components/ThemeToggle'
+import { requestPasswordReset } from '../../../services/authService'
+import ThemeToggle from '../../../components/common/ThemeToggle'
 
 const ForgotPassword = () => {
     // forgot password page that allows users to request a password reset link by entering their email address
